@@ -1,25 +1,18 @@
-# streamlit_app_full.py
-# Streamlit app — Full feature set for GenAI Property Description Auto-Writer
-# Features:
-# - Upload Excel/DOCX, include template file reference (file://...)
-# - Single & batch generation
-# - Multi-language (English/Hindi/Marathi)
-# - Tone presets (Luxury / Professional / Friendly / Short)
-# - Edit & Regenerate for each generated record
-# - Auto-save to Django (optional via DJANGO_SAVE_URL)
-# - Save & Download JSONL, preview UI
+# streamlit_manual_select.py
+# Streamlit app with manual file selection + manual Excel row selection
 #
 # Usage:
-#   pip install streamlit openai pandas python-docx openpyxl requests
-#   streamlit run streamlit_app_full.py
+#   pip install streamlit openai pandas python-docx openpyxl requests python-dotenv
+#   streamlit run streamlit_manual_select.py
 #
-# IMPORTANT:
-# - Default template path (uploaded earlier) is included as:
+# Notes:
+# - Scans both the app 'uploads/' folder and '/mnt/data/' for files.
+# - Default uploaded files (from your session) are included:
 #     /mnt/data/GenAI Property Description Auto-Writer for Rental Listings.docx
-#   This path is passed into the prompt as file://... so your infra can transform it if needed.
-# - Set OPENAI_API_KEY via st.secrets or environment var OPENAI_API_KEY
-# - Optionally set DJANGO_SAVE_URL env var to auto-post outputs to your Django endpoint.
-
+#     /mnt/data/Nagpur_Rental_AI_Data.xlsx
+# - Template file is passed to model as file://{path} (so infra can transform it).
+# - Make sure OPENAI_API_KEY is set (st.secrets or env).
+#
 import os
 import time
 import json
@@ -30,59 +23,187 @@ from typing import Dict, Any, List, Optional
 import streamlit as st
 import pandas as pd
 import openai
-import requests
 
-# ---------- CONFIG ----------
-UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-# Developer-provided template path (use exactly this local path in prompts)
+# ---------- Config ----------
+# Writable uploads dir inside app folder
+APP_UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
+os.makedirs(APP_UPLOAD_DIR, exist_ok=True)
+
+# Additional location (developer-provided uploaded files)
+MNT_DATA_DIR = "/mnt/data"
+
+# Known uploaded files (from conversation)
 DEFAULT_TEMPLATE_PATH = "/mnt/data/GenAI Property Description Auto-Writer for Rental Listings.docx"
-DEFAULT_TEMPLATE_FILE_URL = f"file://{DEFAULT_TEMPLATE_PATH}"
+DEFAULT_EXCEL_PATH = "/mnt/data/Nagpur_Rental_AI_Data.xlsx"
 
-OUTPUT_JSONL = os.path.join(UPLOAD_DIR, "generated_descriptions.jsonl")
-RECENT_JSON = os.path.join(UPLOAD_DIR, "recent_generated.json")  # to store session preview
+OUTPUT_JSONL = os.path.join(APP_UPLOAD_DIR, "generated_descriptions.jsonl")
+RECENT_JSON = os.path.join(APP_UPLOAD_DIR, "recent_generated.json")
 
-# Defaults
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_SLEEP = 0.6
-# ----------------------------
+# ------------------------
 
-# --------- Streamlit page config ----------
-st.set_page_config(page_title="GenAI Property Writer — Full", layout="wide")
-st.title("🏡 GenAI Property Description — Full (Streamlit)")
+st.set_page_config(page_title="GenAI Manual Select — Streamlit", layout="wide")
+st.title("🧭 GenAI Property Writer — Manual File + Row Selection")
 
-# --------- Sidebar: settings ----------
-st.sidebar.header("Settings & Keys")
-api_key_input = st.sidebar.text_input("OpenAI API Key (or set OPENAI_API_KEY env / st.secrets)", type="password")
-model = st.sidebar.text_input("Model", value=st.secrets.get("OPENAI_MODEL", DEFAULT_MODEL) if "OPENAI_MODEL" in st.secrets else DEFAULT_MODEL)
-sleep_between = st.sidebar.number_input("Pause between rows (s)", min_value=0.0, max_value=5.0, value=st.secrets.get("SLEEP", DEFAULT_SLEEP))
-include_template_checkbox = st.sidebar.checkbox("Include template file reference in prompt", value=True)
-django_save_url = os.environ.get("DJANGO_SAVE_URL") or st.sidebar.text_input("DJANGO_SAVE_URL (optional)", value=os.environ.get("DJANGO_SAVE_URL", ""))
-# set openai key
-if api_key_input:
-    openai.api_key = api_key_input
+# Sidebar: API + settings
+st.sidebar.header("Settings")
+api_key = st.sidebar.text_input("OpenAI API Key (or set OPENAI_API_KEY env)", type="password")
+model = st.sidebar.text_input("Model", value=DEFAULT_MODEL)
+sleep_between = st.sidebar.number_input("Pause between rows (s)", min_value=0.0, max_value=5.0, value=DEFAULT_SLEEP)
+include_template_default = st.sidebar.checkbox("Include template in prompt by default", value=True)
+
+if api_key:
+    openai.api_key = api_key
 else:
     openai.api_key = os.environ.get("OPENAI_API_KEY", "")
 
-st.sidebar.markdown("**Server template (auto-included):**")
-if os.path.exists(DEFAULT_TEMPLATE_PATH):
-    st.sidebar.code(DEFAULT_TEMPLATE_PATH)
-    st.sidebar.markdown(f"`file://{DEFAULT_TEMPLATE_PATH}` will be passed in prompt when enabled.")
-else:
-    st.sidebar.warning("Default template not found at the expected path.")
+# Helper: scan files
+def scan_files(exts: List[str], dirs: List[str]) -> List[str]:
+    found = []
+    for d in dirs:
+        if not d or not os.path.exists(d):
+            continue
+        for fname in sorted(os.listdir(d)):
+            if any(fname.lower().endswith(e) for e in exts):
+                found.append(os.path.join(d, fname))
+    # dedupe while preserving order
+    seen = set()
+    out = []
+    for p in found:
+        if p not in seen:
+            out.append(p)
+            seen.add(p)
+    return out
 
-# --------- Helper utilities ----------
-PREMIUM_PROMPT_TEMPLATE = """
+# Show and allow upload
+st.header("1) Upload files (optional)")
+uploaded = st.file_uploader("Upload Excel (.xlsx) or DOCX template (.docx)", type=["xlsx", "xls", "docx"], accept_multiple_files=False)
+if uploaded is not None:
+    save_name = uploaded.name.replace(" ", "_")
+    save_path = os.path.join(APP_UPLOAD_DIR, save_name)
+    with open(save_path, "wb") as f:
+        f.write(uploaded.getbuffer())
+    st.success(f"Saved to `{save_path}` — it will appear in the file selectors below.")
+
+# File selectors: assemble list from app uploads + /mnt/data
+docx_files = scan_files([".docx"], [APP_UPLOAD_DIR, MNT_DATA_DIR])
+excel_files = scan_files([".xlsx", ".xls", ".csv"], [APP_UPLOAD_DIR, MNT_DATA_DIR])
+
+# Ensure defaults appear
+if DEFAULT_TEMPLATE_PATH not in docx_files and os.path.exists(DEFAULT_TEMPLATE_PATH):
+    docx_files.insert(0, DEFAULT_TEMPLATE_PATH)
+if DEFAULT_EXCEL_PATH not in excel_files and os.path.exists(DEFAULT_EXCEL_PATH):
+    excel_files.insert(0, DEFAULT_EXCEL_PATH)
+
+st.header("2) Manual file selection")
+col1, col2 = st.columns(2)
+with col1:
+    st.subheader("Choose template (.docx)")
+    if docx_files:
+        template_choice = st.selectbox("Template file (choose one)", options=docx_files, format_func=lambda x: os.path.basename(x))
+        st.write("Selected template path:", template_choice)
+    else:
+        st.warning("No .docx templates found. Upload one above.")
+        template_choice = None
+
+with col2:
+    st.subheader("Choose Excel / CSV")
+    if excel_files:
+        excel_choice = st.selectbox("Excel file (choose one)", options=excel_files, format_func=lambda x: os.path.basename(x))
+        st.write("Selected data file path:", excel_choice)
+    else:
+        st.warning("No Excel/CSV found. Upload one above.")
+        excel_choice = None
+
+# Preview Excel and manual row selection
+st.header("3) Preview Excel & select rows to generate")
+selected_rows_indices: List[int] = []
+df = None
+if excel_choice and os.path.exists(excel_choice):
+    try:
+        if excel_choice.lower().endswith((".xls", ".xlsx")):
+            df = pd.read_excel(excel_choice)
+        else:
+            df = pd.read_csv(excel_choice)
+        df = df.fillna("")  # replace NaN
+        st.success(f"Loaded {len(df)} rows from `{os.path.basename(excel_choice)}`")
+        # show a compact preview: add an index column
+        df_preview = df.reset_index().rename(columns={"index": "row_index"})
+        # show key columns if they exist for easier selection
+        key_cols = []
+        for c in ["locality", "city", "bhk", "property_type", "rent_amount"]:
+            if c in df_preview.columns:
+                key_cols.append(c)
+        display_cols = ["row_index"] + key_cols if key_cols else df_preview.columns.tolist()[:6]
+        st.dataframe(df_preview[display_cols].head(1000), use_container_width=True)
+        # Multi-select rows (show options as "index — brief summary")
+        options = []
+        for _, r in df_preview.iterrows():
+            idx = int(r["row_index"])
+            summary_items = []
+            for c in key_cols:
+                val = r.get(c, "")
+                if val not in ("", None):
+                    summary_items.append(f"{c}:{val}")
+            summary = "; ".join(summary_items) if summary_items else "row"
+            options.append((idx, f"{idx} — {summary}"))
+        # build mapping for selectbox display
+        idx_to_label = {opt[0]: opt[1] for opt in options}
+        labels = [opt[1] for opt in options]
+        # create multiselect of labels
+        default_select = [labels[0]] if labels else []
+        chosen_labels = st.multiselect("Select rows to generate (choose one or more)", options=labels, default=default_select, help="Select rows by index. You can pick multiple rows.")
+        # map back to indices
+        selected_rows_indices = [int(lbl.split(" — ")[0]) for lbl in chosen_labels]
+        st.write(f"Selected row indices: {selected_rows_indices}")
+    except Exception as e:
+        st.error(f"Failed to load Excel: {e}")
+else:
+    st.info("Select an Excel file above to preview rows and pick specific rows to process.")
+
+# Single-row manual edit area (optional)
+st.header("4) Single-row manual edit / quick generate")
+st.markdown("You can paste a single property JSON here (or click 'Load from selected row' to populate it).")
+single_prop_text = st.text_area("Property JSON (single)", height=250, key="single_prop_area")
+
+if st.button("Load from selected row (populate JSON area)"):
+    if df is None or not selected_rows_indices:
+        st.warning("No dataframe loaded or no rows selected.")
+    else:
+        # load first selected index into area
+        idx = selected_rows_indices[0]
+        try:
+            row = df.reset_index().loc[df.reset_index()["index"] == idx].squeeze()
+            if row is None or row.empty:
+                st.error("Couldn't find the selected row.")
+            else:
+                row_dict = row.dropna().to_dict()
+                st.experimental_set_query_params()  # noop to avoid warning
+                st.session_state["single_prop_area"] = json.dumps(row_dict, ensure_ascii=False, indent=2)
+                # reflect change
+                single_prop_text = st.session_state["single_prop_area"]
+                st.success(f"Loaded row {idx} into JSON area.")
+        except Exception as e:
+            st.error(f"Error loading row: {e}")
+
+# Generation options
+st.header("5) Generate (for selected rows or single property)")
+lang = st.selectbox("Language", options=["English", "Hindi", "Marathi"], index=0)
+tone = st.selectbox("Tone", options=["Professional", "Luxury", "Friendly", "Short"], index=0)
+include_template = st.checkbox("Include template file in prompt (file://...)", value=include_template_default)
+process_button_col1, process_button_col2 = st.columns(2)
+
+# Helper functions for prompt + LLM
+PREMIUM_PROMPT = """
 You are an elite real-estate copywriter, luxury brand storyteller, and SEO strategist with deep understanding of buyer psychology.
 Your mission is to transform structured property inputs into a high-end, persuasive, and SEO-optimized rental listing description that elevates the perceived value of the property.
-
-Focus on: Lifestyle storytelling, Premium positioning, High-conversion wording, Location desirability, Emotional + functional appeal, Clean, polished magazine-quality writing.
 
 Use all input fields intelligently. Blend "rough_description" seamlessly if provided.
 DO NOT generate generic or repetitive content. DO NOT mention missing data.
 
 Return STRICT JSON ONLY with this schema:
-{{
+{
   "title": "",
   "teaser_text": "",
   "full_description": "",
@@ -90,44 +211,34 @@ Return STRICT JSON ONLY with this schema:
   "seo_keywords": [],
   "meta_title": "",
   "meta_description": ""
-}}
+}
 """
 
-TONE_PROMPT_MAP = {
-    "Luxury": "Use an aspirational, high-end magazine voice. Emphasize premium lifestyle and exclusivity.",
-    "Professional": "Use a clear, trustworthy professional tone focused on facts and conversion.",
-    "Friendly": "Use a warm, conversational tone that appeals to everyday renters.",
-    "Short": "Be concise and punchy — short sentences, high impact."
-}
-
-LANGUAGE_MAP = {
-    "English": "Generate the text in English.",
-    "Hindi": "Generate the text in Hindi (use natural, professional Hindi).",
-    "Marathi": "Generate the text in Marathi (use clear, professional Marathi)."
-}
-
-def build_prompt(property_data: Dict[str, Any], tone: str = "Professional", language: str = "English", include_template: bool = True) -> str:
-    """
-    Build prompt with instruction + optional template file + tone + language + property JSON.
-    """
-    instruct = PREMIUM_PROMPT_TEMPLATE.strip()
-    # append tone & language instructions
-    tone_instr = TONE_PROMPT_MAP.get(tone, "")
-    lang_instr = LANGUAGE_MAP.get(language, "")
-    parts = [instruct, tone_instr, lang_instr]
-    if include_template and os.path.exists(DEFAULT_TEMPLATE_PATH):
-        parts.append(f"REFERENCE_TEMPLATE_FILE: file://{DEFAULT_TEMPLATE_PATH}")
-    # property JSON
-    input_json = json.dumps(property_data, ensure_ascii=False, indent=2)
-    parts.append("INPUT PROPERTY JSON:\n" + input_json)
-    parts.append("Return only the strict JSON document as per schema. No additional explanation.")
+def build_prompt(property_data: Dict[str, Any], tone: str, lang: str, template_path: Optional[str]):
+    tone_map = {
+        "Luxury": "Use an aspirational, high-end magazine voice emphasizing exclusivity and lifestyle.",
+        "Professional": "Use a clear, trustworthy professional tone focused on facts and conversion.",
+        "Friendly": "Use a warm, conversational tone that appeals to everyday renters.",
+        "Short": "Be concise and punchy — short sentences, high impact."
+    }
+    lang_map = {
+        "English": "Generate the text in English.",
+        "Hindi": "Generate the text in natural, professional Hindi.",
+        "Marathi": "Generate the text in clear, professional Marathi."
+    }
+    parts = [PREMIUM_PROMPT.strip(), tone_map.get(tone,""), lang_map.get(lang,"")]
+    if template_path:
+        parts.append(f"REFERENCE_TEMPLATE_FILE: file://{template_path}")
+    parts.append("INPUT PROPERTY JSON:")
+    parts.append(json.dumps(property_data, ensure_ascii=False, indent=2))
+    parts.append("Return only the strict JSON document as per schema. No extra commentary.")
     return "\n\n".join([p for p in parts if p])
 
-def call_openai_chat(prompt: str, model_name: str = DEFAULT_MODEL, retries: int = 3) -> Optional[str]:
+def call_openai(prompt: str, model_name: str = DEFAULT_MODEL, retries: int = 3) -> Optional[str]:
     if not openai.api_key:
-        st.error("OpenAI API key not configured. Provide in sidebar or set env var OPENAI_API_KEY.")
+        st.error("OpenAI API key not configured. Set it in the sidebar or environment variable OPENAI_API_KEY.")
         return None
-    for attempt in range(1, retries + 1):
+    for attempt in range(1, retries+1):
         try:
             resp = openai.ChatCompletion.create(
                 model=model_name,
@@ -137,7 +248,7 @@ def call_openai_chat(prompt: str, model_name: str = DEFAULT_MODEL, retries: int 
                 ],
                 temperature=0.2,
                 max_tokens=900,
-                top_p=1.0,
+                top_p=1.0
             )
             return resp["choices"][0]["message"]["content"]
         except Exception as e:
@@ -145,7 +256,7 @@ def call_openai_chat(prompt: str, model_name: str = DEFAULT_MODEL, retries: int 
             time.sleep(1 * attempt)
     return None
 
-def extract_json(text: str) -> Optional[Dict[str, Any]]:
+def extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
     if not text:
         return None
     text = re.sub(r"```(?:json)?\s*", "", text).strip()
@@ -165,7 +276,7 @@ def extract_json(text: str) -> Optional[Dict[str, Any]]:
                 candidate = text[start:i+1]
                 try:
                     return json.loads(candidate)
-                except json.JSONDecodeError:
+                except Exception:
                     cleaned = re.sub(r",\s*}", "}", candidate)
                     cleaned = re.sub(r",\s*\]", "]", cleaned)
                     try:
@@ -177,7 +288,7 @@ def extract_json(text: str) -> Optional[Dict[str, Any]]:
 def append_record(record: Dict[str, Any]):
     with open(OUTPUT_JSONL, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-    # update in-memory preview file
+    # maintain recent
     recent = []
     if os.path.exists(RECENT_JSON):
         try:
@@ -189,289 +300,100 @@ def append_record(record: Dict[str, Any]):
     with open(RECENT_JSON, "w", encoding="utf-8") as fh:
         json.dump(recent, fh, ensure_ascii=False, indent=2)
 
-def load_excel(path: str) -> List[Dict[str, Any]]:
-    df = pd.read_excel(path)
-    df = df.fillna("")
-    props = []
-    for _, row in df.iterrows():
-        d = row.to_dict()
-        if "amenities" in d and isinstance(d["amenities"], str):
-            d["amenities"] = [a.strip() for a in d["amenities"].split(",") if a.strip()] if d["amenities"].strip() else []
-        props.append(d)
-    return props
-
-def post_to_django(url: str, payload: Dict[str, Any]):
-    if not url:
-        return None
-    try:
-        resp = requests.post(url, json=payload, timeout=10)
-        return resp.status_code, resp.text
-    except Exception as e:
-        return None
-
-# --------- UI: upload section ----------
-st.header("1) Upload files (Excel / DOCX templates)")
-with st.expander("Upload a file"):
-    upload_file = st.file_uploader("Choose Excel (.xlsx/.xls) or DOCX template", type=["xlsx","xls","docx"], accept_multiple_files=False)
-    if upload_file is not None:
-        safe_name = upload_file.name.replace(" ", "_")
-        save_path = os.path.join(UPLOAD_DIR, safe_name)
-        with open(save_path, "wb") as f:
-            f.write(upload_file.getbuffer())
-        st.success(f"Saved to `{save_path}` — you can use this filename in Generate section.")
-
-st.markdown("**Available template on server (auto):**")
-if os.path.exists(DEFAULT_TEMPLATE_PATH):
-    st.code(DEFAULT_TEMPLATE_PATH)
-    st.caption("This will be passed to the model as `file://...` if template inclusion is enabled.")
-else:
-    st.warning("Default template not present on server. Upload if needed.")
-
-# --------- UI: generate section ----------
-st.header("2) Generate descriptions (single or batch)")
-colA, colB = st.columns([2,1])
-
-with colB:
-    st.subheader("Options")
-    language = st.selectbox("Language", options=["English","Hindi","Marathi"], index=0)
-    tone = st.selectbox("Tone preset", options=list(TONE_PROMPT_MAP.keys()), index=1)
-    max_sleep = st.number_input("Pause between batch rows (s)", min_value=0.0, max_value=5.0, value=float(sleep_between))
-    include_template = st.checkbox("Include server template in prompt", value=include_template_checkbox)
-    st.markdown("**Django auto-save**")
-    st.caption("If you provide DJANGO_SAVE_URL (sidebar or env) the app will POST each generated record to that endpoint.")
-    if django_save_url:
-        st.success("DJANGO_SAVE_URL configured.")
+# Process selected rows
+if process_button_col1.button("Generate selected rows"):
+    if not selected_rows_indices:
+        st.warning("No rows selected. Choose rows in the Excel preview.")
     else:
-        st.info("DJANGO_SAVE_URL not set — no auto-post to Django.")
-
-with colA:
-    mode = st.radio("Mode", ["Single property", "Batch from Excel"], index=0)
-    if mode == "Single property":
-        st.markdown("Enter property JSON (keys should match schema). Example below is prefilled.")
-        example = {
-            "property_type": "Apartment",
-            "bhk": "2 BHK",
-            "area_sqft": "950",
-            "city": "Nagpur",
-            "locality": "Manish Nagar",
-            "landmark": "Near Manish Nagar Market",
-            "floor_no": "3",
-            "total_floors": "6",
-            "furnishing_status": "Semi-Furnished",
-            "rent_amount": "18000",
-            "deposit_amount": "36000",
-            "available_from": "2025-12-01",
-            "preferred_tenants": "Family",
-            "amenities": ["Lift","Covered Parking","24x7 Security"],
-            "rough_description": "Well-lit apartment with modular kitchen, close to schools and market."
-        }
-        prop_text = st.text_area("Property JSON", value=json.dumps(example, ensure_ascii=False, indent=2), height=300)
-        if st.button("Generate Single Property"):
-            try:
-                prop_obj = json.loads(prop_text)
-            except Exception as e:
-                st.error(f"Invalid JSON: {e}")
-                st.stop()
-            prompt = build_prompt(prop_obj, tone=tone, language=language, include_template=include_template)
-            with st.spinner("Calling LLM..."):
-                raw = call_openai_chat(prompt, model_name=model)
-            if not raw:
-                st.error("LLM call failed.")
-            else:
-                parsed = extract_json(raw)
-                if not parsed:
-                    st.error("Could not parse JSON from model output. See raw below.")
-                    st.code(raw)
-                else:
-                    # build record with metadata
-                    record = {
-                        "id": str(uuid.uuid4()),
-                        "input": prop_obj,
-                        "output": parsed,
-                        "tone": tone,
-                        "language": language,
-                        "template_included": include_template,
-                        "model": model,
-                        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-                    }
-                    append_record(record)
-                    st.success("Generated and saved.")
-                    st.json(record["output"])
-                    if django_save_url:
-                        res = post_to_django(django_save_url, record)
-                        if res:
-                            st.info(f"Posted to Django: {res[0]}")
-                        else:
-                            st.warning("Failed to post to Django (check URL / network).")
-    else:
-        st.markdown("Enter Excel filename present in `/mnt/data` (upload in Upload section first).")
-        excel_filename = st.text_input("Excel filename (e.g., Nagpur_Rental_AI_Data.xlsx)", value="Nagpur_Rental_AI_Data.xlsx")
-        if st.button("Start Batch Generation"):
-            excel_path = os.path.join(UPLOAD_DIR, excel_filename)
-            if not os.path.exists(excel_path):
-                st.error(f"Excel file not found at `{excel_path}`. Upload first.")
-                st.stop()
-            props = load_excel(excel_path)
-            n = len(props)
-            if n == 0:
-                st.warning("No rows found in Excel.")
-                st.stop()
-            st.info(f"Loaded {n} properties. Generating now...")
+        if excel_choice is None or not os.path.exists(excel_choice):
+            st.error("Excel file not found. Re-select a valid file.")
+        else:
+            total = len(selected_rows_indices)
             progress = st.progress(0)
             results = []
-            for i, prop in enumerate(props, start=1):
-                prompt = build_prompt(prop, tone=tone, language=language, include_template=include_template)
-                raw = call_openai_chat(prompt, model_name=model)
-                parsed = extract_json(raw) if raw else None
+            for i, idx in enumerate(selected_rows_indices, start=1):
+                # fetch row by original index
+                try:
+                    row = df.reset_index().loc[df.reset_index()["index"] == idx].squeeze()
+                    prop = row.dropna().to_dict()
+                except Exception:
+                    st.error(f"Could not read row {idx}. Skipping.")
+                    prop = {}
+                prompt = build_prompt(prop, tone=tone, lang=lang, template_path=(template_choice if include_template else None))
+                raw = call_openai(prompt, model_name=model)
+                parsed = extract_json_from_text(raw) if raw else None
                 record = {
                     "id": str(uuid.uuid4()),
                     "input": prop,
                     "output": parsed,
+                    "index": idx,
                     "tone": tone,
-                    "language": language,
-                    "template_included": include_template,
+                    "language": lang,
+                    "template": template_choice if include_template else None,
                     "model": model,
-                    "index": i,
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
                 }
                 append_record(record)
-                if django_save_url:
-                    post_to_django(django_save_url, record)
                 results.append(record)
-                progress.progress(i / n)
-                st.write(f"Processed {i}/{n}")
-                time.sleep(max(0.0, float(max_sleep)))
-            st.success("Batch complete.")
-            st.write("Preview of first 3 outputs:")
-            for r in results[:3]:
+                progress.progress(i/total)
+                st.write(f"Processed {i}/{total} (row {idx})")
+                time.sleep(float(sleep_between))
+            st.success(f"Finished generating {len(results)} records. Saved to {OUTPUT_JSONL}")
+            st.write("Preview of generated outputs:")
+            for r in results[:5]:
                 st.json(r["output"])
 
-# --------- UI: preview, edit, regenerate ----------
-st.header("3) Preview & Edit Generated Records")
-st.markdown("Latest generated records (most recent first). You can edit fields and regenerate per record.")
-
-# load recent
-recent = []
-if os.path.exists(RECENT_JSON):
+# Process single JSON from text area
+if process_button_col2.button("Generate from single JSON"):
     try:
-        recent = json.load(open(RECENT_JSON, "r", encoding="utf-8"))
-    except Exception:
-        recent = []
-else:
-    # fallback: read OUTPUT_JSONL
-    if os.path.exists(OUTPUT_JSONL):
-        with open(OUTPUT_JSONL, "r", encoding="utf-8") as fh:
-            lines = fh.read().splitlines()
-        for ln in lines[-200:]:
-            try:
-                recent.append(json.loads(ln))
-            except Exception:
-                continue
-
-if not recent:
-    st.info("No generated records yet. Run generation first.")
-else:
-    # display each with expanders
-    for rec in recent[:100]:  # show up to 100 recent
-        rid = rec.get("id", str(uuid.uuid4()))
-        with st.expander(f"Record: {rec.get('input', {}).get('property_type','Property')} — {rec.get('timestamp','')}", expanded=False):
-            st.subheader("Input (editable)")
-            # show input JSON as editable
-            input_json_str = json.dumps(rec.get("input", {}), ensure_ascii=False, indent=2)
-            new_input = st.text_area(f"Input JSON - {rid}", value=input_json_str, height=200, key=f"in_{rid}")
-            st.subheader("Generated Output (editable)")
-            out_json_str = json.dumps(rec.get("output", {}), ensure_ascii=False, indent=2) if rec.get("output") else "{}"
-            new_output = st.text_area(f"Output JSON - {rid}", value=out_json_str, height=300, key=f"out_{rid}")
-
-            st.markdown("**Regeneration controls**")
-            regen_lang = st.selectbox("Language", options=list(LANGUAGE_MAP.keys()), index=list(LANGUAGE_MAP.keys()).index(rec.get("language","English")), key=f"lang_{rid}")
-            regen_tone = st.selectbox("Tone", options=list(TONE_PROMPT_MAP.keys()), index=list(TONE_PROMPT_MAP.keys()).index(rec.get("tone","Professional")), key=f"tone_{rid}")
-            if st.button("Regenerate (use edited input & selected tone/lang)", key=f"regen_{rid}"):
-                # parse edited input
-                try:
-                    parsed_input = json.loads(new_input)
-                except Exception as e:
-                    st.error(f"Invalid edited input JSON: {e}")
-                    continue
-                prompt = build_prompt(parsed_input, tone=regen_tone, language=regen_lang, include_template=rec.get("template_included", include_template))
-                with st.spinner("Calling LLM for regeneration..."):
-                    raw = call_openai_chat(prompt, model_name=model)
-                if not raw:
-                    st.error("LLM call failed.")
-                    continue
-                parsed_out = extract_json(raw)
-                if not parsed_out:
-                    st.error("Could not parse JSON from LLM output. Raw below.")
-                    st.code(raw)
-                    continue
-                # update record
-                new_record = {
-                    "id": rid,
-                    "input": parsed_input,
-                    "output": parsed_out,
-                    "tone": regen_tone,
-                    "language": regen_lang,
-                    "template_included": rec.get("template_included", include_template),
+        prop_obj = json.loads(single_prop_text)
+    except Exception as e:
+        st.error(f"Invalid JSON: {e}")
+        prop_obj = None
+    if prop_obj:
+        prompt = build_prompt(prop_obj, tone=tone, lang=lang, template_path=(template_choice if include_template else None))
+        with st.spinner("Calling LLM..."):
+            raw = call_openai(prompt, model_name=model)
+        if not raw:
+            st.error("LLM call failed.")
+        else:
+            parsed = extract_json_from_text(raw)
+            if not parsed:
+                st.error("Could not parse JSON. Raw output shown:")
+                st.code(raw)
+            else:
+                record = {
+                    "id": str(uuid.uuid4()),
+                    "input": prop_obj,
+                    "output": parsed,
+                    "tone": tone,
+                    "language": lang,
+                    "template": template_choice if include_template else None,
                     "model": model,
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
                 }
-                append_record(new_record)
-                if django_save_url:
-                    post_to_django(django_save_url, new_record)
-                st.success("Regenerated and saved. New output shown below.")
-                st.json(parsed_out)
-            # manual save edited output (without LLM)
-            if st.button("Save edited output (no LLM)", key=f"save_{rid}"):
-                try:
-                    parsed_out_manual = json.loads(new_output)
-                    parsed_in_manual = json.loads(new_input)
-                except Exception as e:
-                    st.error(f"Invalid JSON in edited fields: {e}")
-                    continue
-                manual_record = {
-                    "id": rid,
-                    "input": parsed_in_manual,
-                    "output": parsed_out_manual,
-                    "tone": rec.get("tone", "Professional"),
-                    "language": rec.get("language", "English"),
-                    "template_included": rec.get("template_included", include_template),
-                    "model": model,
-                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-                }
-                append_record(manual_record)
-                if django_save_url:
-                    post_to_django(django_save_url, manual_record)
-                st.success("Edited record saved.")
+                append_record(record)
+                st.success("Generated and saved.")
+                st.json(parsed)
 
-            # export / copy options
-            st.markdown("**Export / Copy**")
-            if st.button("Download this record as JSON", key=f"dl_{rid}"):
-                st.download_button("Download JSON", data=json.dumps(rec, ensure_ascii=False, indent=2), file_name=f"gen_record_{rid}.json", mime="application/json")
-            if st.button("Copy output JSON to clipboard (browser)", key=f"copy_{rid}"):
-                # provide text field to copy manually (streamlit can't directly write to clipboard)
-                st.text_area("Copy output JSON below:", value=json.dumps(rec.get("output", {}), ensure_ascii=False, indent=2), height=200)
-
-# --------- UI: Outputs & Download ----------
-st.header("4) Outputs & Download")
-if os.path.exists(OUTPUT_JSONL):
-    # count
-    with open(OUTPUT_JSONL, "r", encoding="utf-8") as fh:
-        lines = fh.read().splitlines()
-    st.write(f"Total generated records (jsonl): {len(lines)}")
+# Preview recent records and download
+st.header("6) Recent generated records & download")
+if os.path.exists(RECENT_JSON):
+    recent = json.load(open(RECENT_JSON, "r", encoding="utf-8"))
+else:
+    recent = []
+if recent:
+    for rec in recent[:20]:
+        st.write(f"Row index: {rec.get('index','-')} — Generated at: {rec.get('timestamp')}")
+        st.json(rec.get("output"))
     if st.button("Download all generated_descriptions.jsonl"):
-        with open(OUTPUT_JSONL, "rb") as fh:
-            st.download_button("Download JSONL", data=fh, file_name="generated_descriptions.jsonl", mime="application/json")
-    # show last 5
-    st.subheader("Latest 5 records")
-    for ln in lines[-5:]:
-        try:
-            obj = json.loads(ln)
-            st.json(obj)
-        except Exception:
-            st.code(ln)
+        if os.path.exists(OUTPUT_JSONL):
+            with open(OUTPUT_JSONL, "rb") as fh:
+                st.download_button("Download JSONL", data=fh, file_name="generated_descriptions.jsonl", mime="application/json")
+        else:
+            st.warning("No output file yet.")
 else:
-    st.info("No outputs yet. Generate some descriptions first.")
+    st.info("No generated records yet. Generate from selected rows or single JSON.")
 
 st.markdown("---")
-st.caption("Tip: For production, store OPENAI_API_KEY in st.secrets or environment, and set DJANGO_SAVE_URL to auto-persist outputs into your platform. The app passes the local template path as file://... in the prompt so your infra can transform or attach it when calling your model.")
-
+st.caption("Manual selection added ✅ — choose template & Excel file from dropdowns, preview rows, pick the rows you want and generate only those. Template file is passed as file://{path} in the prompt.")
