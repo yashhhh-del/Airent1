@@ -45,6 +45,30 @@ class PropertyFileParser:
         'available_from', 'preferred_tenants'
     ]
     
+    # Column name mappings (in case of variations)
+    COLUMN_MAPPINGS = {
+        'property type': 'property_type',
+        'Property Type': 'property_type',
+        'Property_Type': 'property_type',
+        'type': 'property_type',
+        'BHK': 'bhk',
+        'area': 'area_sqft',
+        'Area': 'area_sqft',
+        'City': 'city',
+        'Locality': 'locality',
+        'furnishing': 'furnishing_status',
+        'Furnishing': 'furnishing_status',
+        'Furnishing Status': 'furnishing_status',
+        'rent': 'rent_amount',
+        'Rent': 'rent_amount',
+        'deposit': 'deposit_amount',
+        'Deposit': 'deposit_amount',
+        'available': 'available_from',
+        'Available From': 'available_from',
+        'tenants': 'preferred_tenants',
+        'Preferred Tenants': 'preferred_tenants'
+    }
+    
     OPTIONAL_COLUMNS = [
         'landmark', 'floor_no', 'total_floors', 'amenities', 'rough_description'
     ]
@@ -63,16 +87,41 @@ class PropertyFileParser:
             else:
                 self.errors.append("Unsupported file format. Use CSV or Excel files.")
                 return None
+            
+            # Normalize column names
+            df = self._normalize_columns(df)
+            
             return df
         except Exception as e:
             self.errors.append(f"Error reading file: {str(e)}")
             return None
     
+    def _normalize_columns(self, df):
+        """Normalize column names to standard format"""
+        # Create mapping for current columns
+        column_map = {}
+        for col in df.columns:
+            # Strip whitespace and check mappings
+            col_clean = col.strip()
+            if col_clean in self.COLUMN_MAPPINGS:
+                column_map[col] = self.COLUMN_MAPPINGS[col_clean]
+            elif col_clean.lower().replace(' ', '_') in self.REQUIRED_COLUMNS + self.OPTIONAL_COLUMNS:
+                column_map[col] = col_clean.lower().replace(' ', '_')
+        
+        # Rename columns
+        if column_map:
+            df = df.rename(columns=column_map)
+        
+        return df
+    
     def validate_columns(self, df):
         """Validate required columns exist"""
         missing = [col for col in self.REQUIRED_COLUMNS if col not in df.columns]
         if missing:
+            available_cols = list(df.columns)
             self.errors.append(f"Missing required columns: {', '.join(missing)}")
+            self.errors.append(f"Available columns in your file: {', '.join(available_cols)}")
+            self.errors.append("Please ensure your file has all required columns with exact names.")
             return False
         return True
     
