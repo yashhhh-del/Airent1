@@ -33,9 +33,8 @@ import openai
 import requests
 
 # ---------- CONFIG ----------
-UPLOAD_DIR = "/mnt/data"
+UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 # Developer-provided template path (use exactly this local path in prompts)
 DEFAULT_TEMPLATE_PATH = "/mnt/data/GenAI Property Description Auto-Writer for Rental Listings.docx"
 DEFAULT_TEMPLATE_FILE_URL = f"file://{DEFAULT_TEMPLATE_PATH}"
@@ -475,3 +474,4 @@ else:
 
 st.markdown("---")
 st.caption("Tip: For production, store OPENAI_API_KEY in st.secrets or environment, and set DJANGO_SAVE_URL to auto-persist outputs into your platform. The app passes the local template path as file://... in the prompt so your infra can transform or attach it when calling your model.")
+
