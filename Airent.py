@@ -199,19 +199,42 @@ Create a compelling, professional rental property listing for:
 
 **Requirements:**
 1. **Title**: Create an attention-grabbing, emotional title (8-12 words) that highlights the property's unique value proposition and creates desire. Make it DIFFERENT from generic titles.
+
 2. **Teaser**: Write a compelling hook (15-20 words) that creates urgency and paints a lifestyle picture
-3. **Full Description**: Craft a detailed, engaging description (150-200 words) that:
-   - Paints a vivid picture of living there
-   - Highlights lifestyle benefits, not just features
-   - Uses emotional, sensory language
-   - Emphasizes location advantages and convenience
-   - Creates FOMO (fear of missing out)
-   - Focuses on the experience and feelings
-   - Follows the creative direction provided above
+
+3. **Full Description (2-3 PARAGRAPHS, 200-300 words total)**:
+   
+   **Paragraph 1 (Opening Hook - 70-100 words):**
+   - Start with an emotional hook or lifestyle statement
+   - Paint a vivid picture of living in this property
+   - Use sensory language and aspirational tone
+   - Create immediate desire and connection
+   
+   **Paragraph 2 (Features & Benefits - 80-120 words):**
+   - Highlight key property features as lifestyle benefits
+   - Emphasize the amenities and what they enable
+   - Focus on convenience, comfort, and modern living
+   - Include specific details about furnishing and space
+   
+   **Paragraph 3 (Location & Call-to-Action - 50-80 words):**
+   - Emphasize strategic location and connectivity
+   - Mention nearby conveniences and lifestyle advantages
+   - Create FOMO (fear of missing out)
+   - End with a subtle call-to-action or urgency statement
+   
+   **Important:** 
+   - Write in 3 distinct paragraphs separated by line breaks
+   - Each paragraph should flow naturally into the next
+   - Total length: 200-300 words
+   - Follow the creative direction: {variation['instruction']}
+
 4. **Bullet Points**: 5 compelling features written as BENEFITS (not just specs). Focus on what the tenant gains. Make them unique and specific.
+
 5. **SEO Keywords**: 5 highly relevant, search-optimized keywords that people actually search for
+
 6. **Meta Title**: SEO-optimized title (under 60 chars) with primary keyword
-7. **Meta Description**: Compelling SEO description (under 160 chars) with call-to-action
+
+7. **Meta Description**: Compelling SEO description (150-160 chars) with call-to-action
 
 **Tone**: {variation['tone']}. Write like you're selling a dream lifestyle, not just a property.
 
@@ -221,11 +244,19 @@ Create a compelling, professional rental property listing for:
 - Create original metaphors and descriptions
 - Avoid repetitive patterns
 
+**Example Structure for Description:**
+
+"Imagine waking up each morning in this beautifully designed 2 BHK sanctuary, where modern elegance meets everyday comfort. Natural light floods through expansive windows, creating a warm ambiance that turns a house into your personal haven. This isn't just a rental property—it's where your best memories will be made.
+
+Step inside to discover a thoughtfully furnished space that combines style with functionality. The modular kitchen inspires culinary creativity, while the spacious living area becomes your entertainment hub. With premium amenities including 24/7 security, power backup, and dedicated parking, every convenience is at your fingertips. The contemporary furnishings and tasteful interiors mean you can move in today and start living your best life tomorrow.
+
+Located in the heart of [Area], you're perfectly positioned for success. Major metro stations are minutes away, premium shopping complexes surround you, and top-rated schools and hospitals are within easy reach. This prime location doesn't just offer a home—it offers a lifestyle upgrade. Available immediately, this gem won't last long in today's competitive market."
+
 Return ONLY valid JSON (no markdown, no ```json):
 {{
     "title": "your captivating title here",
     "teaser_text": "your compelling teaser here",
-    "full_description": "your detailed engaging description here",
+    "full_description": "Paragraph 1 here (70-100 words).\\n\\nParagraph 2 here (80-120 words).\\n\\nParagraph 3 here (50-80 words).",
     "bullet_points": ["lifestyle benefit 1", "lifestyle benefit 2", "lifestyle benefit 3", "lifestyle benefit 4", "lifestyle benefit 5"],
     "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
     "meta_title": "your SEO meta title here",
@@ -328,7 +359,7 @@ Return ONLY valid JSON (no markdown, no ```json):
 
 
 def generate_fallback(property_data):
-    """Fallback template-based generation"""
+    """Fallback template-based generation with 2-3 paragraphs"""
     bhk = property_data['bhk']
     prop_type = property_data['property_type'].title()
     locality = property_data['locality']
@@ -336,17 +367,27 @@ def generate_fallback(property_data):
     area = property_data['area_sqft']
     rent = property_data['rent_amount']
     furnishing = property_data['furnishing_status'].title()
+    amenities = ', '.join(property_data.get('amenities', ['parking', 'security']))
+    
+    # Generate 2-3 paragraph description
+    para1 = f"Looking for the perfect home? This beautiful {bhk} BHK {prop_type} in {locality}, {city} offers the ideal blend of comfort and convenience. Spread across a spacious {area} sqft, this well-maintained property welcomes you with its thoughtful design and modern amenities."
+    
+    para2 = f"The property comes {furnishing} furnished, making your move-in hassle-free and convenient. Enjoy premium amenities including {amenities}, ensuring a comfortable and secure living experience. Every aspect of this home has been designed with your lifestyle in mind, from the functional spaces to the quality fittings."
+    
+    para3 = f"Located in the heart of {locality}, you'll have easy access to essential services, shopping centers, and transportation. At just ₹{rent} per month, this property offers exceptional value for money. Available now for immediate possession - don't miss this opportunity to make it your home!"
+    
+    full_description = f"{para1}\n\n{para2}\n\n{para3}"
     
     return {
         "title": f"Spacious {bhk} BHK {prop_type} for Rent in {locality}",
-        "teaser_text": f"Well-maintained {bhk} BHK {prop_type} in prime {locality} location",
-        "full_description": f"Looking for a comfortable home? This beautiful {bhk} BHK {prop_type} in {locality}, {city} is perfect for you. Spread across {area} sqft, this {furnishing} furnished property offers great value at Rs.{rent}/month. Located in a well-connected area with easy access to essential amenities.",
+        "teaser_text": f"Well-maintained {bhk} BHK {prop_type} in prime {locality} location - Your perfect home awaits!",
+        "full_description": full_description,
         "bullet_points": [
-            f"{bhk} BHK configuration with {area} sqft carpet area",
-            f"{furnishing} furnished with modern fittings",
-            f"Monthly rent: Rs.{rent} | Deposit: Rs.{property_data['deposit_amount']}",
-            f"Preferred for: {property_data['preferred_tenants']}",
-            f"Available from: {property_data['available_from']}"
+            f"{bhk} BHK configuration with {area} sqft carpet area - spacious rooms for comfortable living",
+            f"{furnishing} furnished with modern fittings - move in hassle-free",
+            f"Monthly rent: ₹{rent:,} | Security deposit: ₹{property_data['deposit_amount']:,}",
+            f"Premium amenities for convenient lifestyle - {amenities}",
+            f"Available from {property_data['available_from']} - immediate possession possible"
         ],
         "seo_keywords": [
             f"{bhk} bhk {city}",
@@ -356,7 +397,7 @@ def generate_fallback(property_data):
             f"rent {bhk}bhk {city}"
         ],
         "meta_title": f"{bhk} BHK {prop_type} for Rent in {locality}, {city}",
-        "meta_description": f"Rent this spacious {bhk} BHK {prop_type} in {locality}, {city}. {area} sqft, {furnishing} furnished. Rs.{rent}/month. Available now!"
+        "meta_description": f"Rent this spacious {bhk} BHK {prop_type} in {locality}, {city}. {area} sqft, {furnishing} furnished. ₹{rent:,}/month. Prime location. Book now!"
     }
 
 
@@ -831,17 +872,42 @@ def show_single_property(api_provider, api_key):
         
         st.divider()
         
-        # Editable Detailed Description (2-5 paragraphs)
-        st.markdown("### 📝 Detailed Description (2-5 paragraphs)")
+        # Editable Detailed Description (2-3 paragraphs)
+        st.markdown("### 📝 Detailed Description (2-3 paragraphs)")
+        st.caption("Write 2-3 distinct paragraphs (200-300 words total)")
         edited_description = st.text_area(
             "Description",
             value=result['full_description'],
-            height=250,
-            help="Edit the detailed property description",
+            height=350,
+            help="Edit the detailed property description. Use empty lines to separate paragraphs.",
             key="edit_description",
             label_visibility="collapsed"
         )
         st.session_state.edited_content['full_description'] = edited_description
+        
+        # Show paragraph count and word count
+        paragraphs = [p.strip() for p in edited_description.split('\n\n') if p.strip()]
+        word_count = len(edited_description.split())
+        
+        col_count1, col_count2, col_count3 = st.columns(3)
+        with col_count1:
+            if len(paragraphs) < 2:
+                st.warning(f"⚠️ {len(paragraphs)} paragraph (need 2-3)")
+            elif len(paragraphs) > 3:
+                st.warning(f"⚠️ {len(paragraphs)} paragraphs (recommended 2-3)")
+            else:
+                st.success(f"✅ {len(paragraphs)} paragraphs (perfect!)")
+        
+        with col_count2:
+            if word_count < 200:
+                st.info(f"📝 {word_count} words (min 200)")
+            elif word_count > 300:
+                st.info(f"📝 {word_count} words (max 300)")
+            else:
+                st.success(f"✅ {word_count} words (perfect!)")
+        
+        with col_count3:
+            st.info(f"📊 {len(edited_description)} characters")
         
         st.divider()
         
