@@ -325,44 +325,117 @@ Return ONLY the JSON, no explanations."""
 
 
 def generate_with_claude(property_data, api_key):
-    """Generate description using Claude API"""
+    """Generate PREMIUM description using Claude API - Best Quality"""
     try:
         bhk = property_data['bhk']
         prop_type = property_data['property_type'].title()
         locality = property_data['locality']
         city = property_data['city']
+        area = property_data['area_sqft']
+        rent = property_data['rent_amount']
+        furnishing = property_data['furnishing_status']
+        amenities = ', '.join(property_data['amenities']) if property_data['amenities'] else 'Standard amenities'
+        tenants = property_data['preferred_tenants']
+        deposit = property_data['deposit_amount']
+        available = property_data['available_from']
         
-        prompt = f"""Generate a rental property description in JSON format for:
-{bhk} BHK {prop_type} in {locality}, {city}
-Area: {property_data['area_sqft']} sqft, Rent: Rs.{property_data['rent_amount']}
-Furnishing: {property_data['furnishing_status']}
+        prompt = f"""You are an expert real estate copywriter specializing in premium property listings that drive high engagement and conversions.
 
-Return ONLY valid JSON with fields: title, teaser_text, full_description, bullet_points[], seo_keywords[], meta_title, meta_description"""
+Create a compelling, professional rental property listing for:
+
+**Property Details:**
+- Type: {bhk} BHK {prop_type}
+- Location: {locality}, {city}
+- Area: {area} square feet
+- Monthly Rent: ₹{rent}
+- Security Deposit: ₹{deposit}
+- Furnishing: {furnishing} furnished
+- Amenities: {amenities}
+- Preferred Tenants: {tenants}
+- Available From: {available}
+
+**Requirements:**
+1. **Title**: Create an attention-grabbing, emotional title (8-12 words) that highlights the property's unique value proposition
+2. **Teaser**: Write a compelling hook (15-20 words) that creates urgency and desire
+3. **Full Description**: Craft a detailed, engaging description (150-200 words) that:
+   - Paints a vivid picture of living there
+   - Highlights lifestyle benefits, not just features
+   - Uses emotional, sensory language
+   - Emphasizes location advantages
+   - Creates FOMO (fear of missing out)
+4. **Bullet Points**: 5 compelling features written as benefits (not just specs)
+5. **SEO Keywords**: 5 highly relevant, search-optimized keywords
+6. **Meta Title**: SEO-optimized title (under 60 chars) with primary keyword
+7. **Meta Description**: Compelling SEO description (under 160 chars) with call-to-action
+
+**Tone**: Professional yet warm, aspirational, persuasive, benefit-focused
+
+Return ONLY a valid JSON object with these exact keys:
+{{
+    "title": "your title here",
+    "teaser_text": "your teaser here",
+    "full_description": "your detailed description here",
+    "bullet_points": ["benefit 1", "benefit 2", "benefit 3", "benefit 4", "benefit 5"],
+    "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+    "meta_title": "your meta title here",
+    "meta_description": "your meta description here"
+}}
+
+Return ONLY the JSON object, no markdown formatting, no explanations."""
         
         response = requests.post(
             "https://api.anthropic.com/v1/messages",
             headers={
                 "Content-Type": "application/json",
-                "x-api-key": api_key,
+                "x-api-key": api_key.strip(),
                 "anthropic-version": "2023-06-01"
             },
             json={
                 "model": "claude-sonnet-4-20250514",
-                "max_tokens": 2000,
+                "max_tokens": 2500,
+                "temperature": 0.7,
                 "messages": [{"role": "user", "content": prompt}]
             },
-            timeout=30
+            timeout=45
         )
         
         if response.status_code == 200:
             result = response.json()
-            content = result['content'][0]['text']
-            return json.loads(content)
-        else:
-            raise Exception(f"Claude API Error: {response.status_code}")
+            content = result['content'][0]['text'].strip()
             
+            # Clean markdown if present
+            if content.startswith('```json'):
+                content = content.replace('```json', '').replace('```', '').strip()
+            elif content.startswith('```'):
+                content = content.replace('```', '').strip()
+            
+            return json.loads(content)
+        
+        elif response.status_code == 401:
+            st.error("❌ Invalid Claude API Key")
+            st.info("Get your API key from: https://console.anthropic.com")
+            return None
+        
+        elif response.status_code == 429:
+            st.error("❌ Rate limit exceeded. Please wait a moment.")
+            return None
+        
+        else:
+            st.error(f"❌ Claude API Error: {response.status_code}")
+            with st.expander("🔍 Error Details"):
+                st.code(response.text)
+            return None
+            
+    except requests.exceptions.Timeout:
+        st.error("⏱️ Request timeout. Claude is taking longer than expected.")
+        return None
+    
+    except json.JSONDecodeError as e:
+        st.error(f"❌ Invalid JSON response: {str(e)}")
+        return None
+    
     except Exception as e:
-        st.error(f"Claude API Error: {str(e)}")
+        st.error(f"❌ Error: {str(e)}")
         return None
 
 
@@ -401,16 +474,16 @@ def generate_fallback(property_data):
 
 def generate_description(property_data, api_provider, api_key=None):
     """Main generation function with multiple providers"""
-    if api_provider == "Groq (Free & Fast)" and api_key:
+    if api_provider == "Claude (Premium)" and api_key:
+        result = generate_with_claude(property_data, api_key)
+        if result:
+            return result
+    elif api_provider == "Groq (Free & Fast)" and api_key:
         result = generate_with_groq(property_data, api_key)
         if result:
             return result
     elif api_provider == "Grok (X.AI)" and api_key:
         result = generate_with_grok(property_data, api_key)
-        if result:
-            return result
-    elif api_provider == "Claude" and api_key:
-        result = generate_with_claude(property_data, api_key)
         if result:
             return result
     
@@ -437,14 +510,19 @@ def main():
         # AI Provider Selection
         api_provider = st.selectbox(
             "Select AI Provider",
-            ["Template (No API)", "Groq (Free & Fast)", "Grok (X.AI)", "Claude"],
-            help="Groq & Grok both offer free tier API access!"
+            ["Claude (Premium)", "Groq (Free & Fast)", "Grok (X.AI)", "Template (No API)"],
+            help="Claude gives best premium quality output!"
         )
         
         # API Key Input
         api_key = None
         if api_provider != "Template (No API)":
-            if api_provider == "Groq (Free & Fast)":
+            if api_provider == "Claude (Premium)":
+                st.success("👑 Premium Quality Output - Best SEO & Engagement")
+                st.info("Get Claude API key from: https://console.anthropic.com")
+                api_key = st.text_input("Claude API Key", type="password", placeholder="sk-ant-...")
+                
+            elif api_provider == "Groq (Free & Fast)":
                 st.info("🆓 Get free Groq API key from: https://console.groq.com/keys")
                 api_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
                 
@@ -461,9 +539,6 @@ def main():
             elif api_provider == "Grok (X.AI)":
                 st.info("🆓 Get free Grok API key from: https://console.x.ai")
                 api_key = st.text_input("Grok API Key", type="password", placeholder="xai-...")
-            else:
-                st.info("Get Claude API key from: https://console.anthropic.com")
-                api_key = st.text_input("Claude API Key", type="password", placeholder="sk-ant-...")
         
         st.divider()
         mode = st.radio("Mode", ["Single Property", "Bulk Upload"])
@@ -471,6 +546,14 @@ def main():
         # API Info
         with st.expander("ℹ️ About API Providers"):
             st.markdown("""
+            **Claude (Premium) - RECOMMENDED:**
+            - 👑 Highest quality output
+            - 🎯 Best SEO optimization
+            - ✍️ Most engaging & persuasive content
+            - 🚀 Superior conversion rates
+            - 💰 Paid API (~$0.002 per property)
+            - Get key: console.anthropic.com
+            
             **Groq (Free & Fast):**
             - ✅ Free tier with generous limits
             - ⚡ Super fast inference (fastest!)
@@ -483,16 +566,12 @@ def main():
             - 💬 Good conversational AI
             - Get key: console.x.ai
             
-            **Claude:**
-            - 👑 Premium quality
-            - 📝 Excellent SEO optimization
-            - 💰 Paid API (credits required)
-            - Get key: console.anthropic.com
-            
             **Template (No API):**
             - 🆓 No API key needed
             - ⚡ Instant generation
             - 📄 Basic quality
+            
+            **💡 Recommendation:** Use Claude for premium listings & conversions!
             """)
     
     if mode == "Single Property":
