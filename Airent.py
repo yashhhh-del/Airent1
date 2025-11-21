@@ -124,7 +124,7 @@ def test_groq_api(api_key):
 
 
 def generate_with_groq(property_data, api_key, retry_count=3):
-    """Generate description using Groq API (Free & Super Fast) with retries"""
+    """Generate PREMIUM description using Groq API (Free & Super Fast) with enhanced prompting"""
     
     for attempt in range(retry_count):
         try:
@@ -139,23 +139,58 @@ def generate_with_groq(property_data, api_key, retry_count=3):
             rent = property_data['rent_amount']
             furnishing = property_data['furnishing_status']
             amenities = ', '.join(property_data['amenities']) if property_data['amenities'] else 'Standard amenities'
+            tenants = property_data['preferred_tenants']
+            deposit = property_data['deposit_amount']
+            available = property_data['available_from']
             
-            prompt = f"""Generate a professional rental property listing in JSON format.
+            prompt = f"""You are an expert real estate copywriter specializing in premium property listings that drive high engagement and conversions.
 
-Property: {bhk} BHK {prop_type}, {locality}, {city}
-Area: {area} sqft | Rent: Rs.{rent}/month
-Furnishing: {furnishing} | Amenities: {amenities}
-Preferred: {property_data['preferred_tenants']}
+Create a compelling, professional rental property listing for:
 
-Return ONLY this JSON structure (no markdown, no explanations):
+**Property Details:**
+- Type: {bhk} BHK {prop_type}
+- Location: {locality}, {city}
+- Area: {area} square feet
+- Monthly Rent: ₹{rent}
+- Security Deposit: ₹{deposit}
+- Furnishing: {furnishing} furnished
+- Amenities: {amenities}
+- Preferred Tenants: {tenants}
+- Available From: {available}
+
+**Requirements:**
+1. **Title**: Create an attention-grabbing, emotional title (8-12 words) that highlights the property's unique value proposition and creates desire
+2. **Teaser**: Write a compelling hook (15-20 words) that creates urgency and paints a lifestyle picture
+3. **Full Description**: Craft a detailed, engaging description (150-200 words) that:
+   - Paints a vivid picture of living there
+   - Highlights lifestyle benefits, not just features
+   - Uses emotional, sensory language
+   - Emphasizes location advantages and convenience
+   - Creates FOMO (fear of missing out)
+   - Focuses on the experience and feelings
+4. **Bullet Points**: 5 compelling features written as BENEFITS (not just specs). Focus on what the tenant gains.
+5. **SEO Keywords**: 5 highly relevant, search-optimized keywords that people actually search for
+6. **Meta Title**: SEO-optimized title (under 60 chars) with primary keyword
+7. **Meta Description**: Compelling SEO description (under 160 chars) with call-to-action
+
+**Tone**: Professional yet warm, aspirational, persuasive, benefit-focused. Write like you're selling a dream lifestyle, not just a property.
+
+**Examples of Premium vs Basic:**
+❌ Basic: "2 BHK flat with parking"
+✅ Premium: "Experience Modern Living with Dedicated Parking - Your Urban Sanctuary Awaits"
+
+❌ Basic: "Near metro station"
+✅ Premium: "Skip Traffic Stress - Metro Access Puts the City at Your Doorstep"
+
+Return ONLY valid JSON (no markdown, no ```json):
 {{
-    "title": "catchy property title (8-12 words)",
-    "teaser_text": "short engaging teaser (15-20 words)",
-    "full_description": "detailed description (100-150 words)",
-    "bullet_points": ["feature 1", "feature 2", "feature 3", "feature 4", "feature 5"],
+    "title": "your captivating title here",
+    "teaser_text": "your compelling teaser here",
+    "full_description": "your detailed engaging description here",
+    "bullet_points": ["lifestyle benefit 1", "lifestyle benefit 2", "lifestyle benefit 3", "lifestyle benefit 4", "lifestyle benefit 5"],
     "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-    "meta_title": "SEO title under 60 characters",
-    "meta_description": "SEO description under 160 characters"
+    "meta_title": "your SEO meta title here",
+    "meta_description": "your SEO meta description with CTA here"
 }}"""
 
             # Make API request with latest Groq model
@@ -170,15 +205,15 @@ Return ONLY this JSON structure (no markdown, no explanations):
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are a professional real estate content writer. Always respond with valid JSON only, no markdown formatting."
+                            "content": "You are an expert real estate copywriter creating premium, emotionally engaging property listings. Write compelling, benefit-focused content that sells lifestyle and experience, not just features. Always respond with valid JSON only, no markdown formatting."
                         },
                         {
                             "role": "user", 
                             "content": prompt
                         }
                     ],
-                    "temperature": 0.6,
-                    "max_tokens": 1500,
+                    "temperature": 0.8,  # Higher for more creative output
+                    "max_tokens": 2000,  # More tokens for detailed content
                     "top_p": 0.9
                 },
                 timeout=30
@@ -474,12 +509,12 @@ def generate_fallback(property_data):
 
 def generate_description(property_data, api_provider, api_key=None):
     """Main generation function with multiple providers"""
-    if api_provider == "Claude (Premium)" and api_key:
-        result = generate_with_claude(property_data, api_key)
+    if api_provider == "Groq Premium (Free)" and api_key:
+        result = generate_with_groq(property_data, api_key)
         if result:
             return result
-    elif api_provider == "Groq (Free & Fast)" and api_key:
-        result = generate_with_groq(property_data, api_key)
+    elif api_provider == "Claude (Paid Premium)" and api_key:
+        result = generate_with_claude(property_data, api_key)
         if result:
             return result
     elif api_provider == "Grok (X.AI)" and api_key:
@@ -495,7 +530,7 @@ def generate_description(property_data, api_provider, api_key=None):
 # ==================== MAIN APP ====================
 def main():
     st.title("🏠 AI Property Description Generator")
-    st.caption("Powered by Multiple AI Models - Fixed Groq API Integration")
+    st.caption("Premium Quality Descriptions - FREE with Groq API 🌟")
     
     # Initialize session state
     if 'column_mapping' not in st.session_state:
@@ -510,19 +545,15 @@ def main():
         # AI Provider Selection
         api_provider = st.selectbox(
             "Select AI Provider",
-            ["Claude (Premium)", "Groq (Free & Fast)", "Grok (X.AI)", "Template (No API)"],
-            help="Claude gives best premium quality output!"
+            ["Groq Premium (Free)", "Claude (Paid Premium)", "Grok (X.AI)", "Template (No API)"],
+            help="Groq Premium uses enhanced prompting for free premium quality!"
         )
         
         # API Key Input
         api_key = None
         if api_provider != "Template (No API)":
-            if api_provider == "Claude (Premium)":
-                st.success("👑 Premium Quality Output - Best SEO & Engagement")
-                st.info("Get Claude API key from: https://console.anthropic.com")
-                api_key = st.text_input("Claude API Key", type="password", placeholder="sk-ant-...")
-                
-            elif api_provider == "Groq (Free & Fast)":
+            if api_provider == "Groq Premium (Free)":
+                st.success("🌟 PREMIUM Quality + FREE - Best of Both Worlds!")
                 st.info("🆓 Get free Groq API key from: https://console.groq.com/keys")
                 api_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
                 
@@ -536,6 +567,13 @@ def main():
                             else:
                                 st.error(message)
                 
+                st.info("💡 **Premium Features:** Enhanced prompting + Emotional copy + Lifestyle focus")
+                
+            elif api_provider == "Claude (Paid Premium)":
+                st.success("👑 Maximum Premium Quality (Paid)")
+                st.info("Get Claude API key from: https://console.anthropic.com")
+                api_key = st.text_input("Claude API Key", type="password", placeholder="sk-ant-...")
+                
             elif api_provider == "Grok (X.AI)":
                 st.info("🆓 Get free Grok API key from: https://console.x.ai")
                 api_key = st.text_input("Grok API Key", type="password", placeholder="xai-...")
@@ -546,19 +584,20 @@ def main():
         # API Info
         with st.expander("ℹ️ About API Providers"):
             st.markdown("""
-            **Claude (Premium) - RECOMMENDED:**
-            - 👑 Highest quality output
-            - 🎯 Best SEO optimization
-            - ✍️ Most engaging & persuasive content
-            - 🚀 Superior conversion rates
-            - 💰 Paid API (~$0.002 per property)
-            - Get key: console.anthropic.com
-            
-            **Groq (Free & Fast):**
-            - ✅ Free tier with generous limits
-            - ⚡ Super fast inference (fastest!)
-            - 🎯 Llama 3.3 70B model (latest)
+            **Groq Premium (Free) - RECOMMENDED:**
+            - 🌟 Premium quality with enhanced prompting
+            - 🆓 Completely FREE (generous limits)
+            - ⚡ Super fast inference
+            - ✍️ Emotional, lifestyle-focused content
+            - 🎯 Better engagement & conversions
+            - 🚀 Llama 3.3 70B model
             - Get key: console.groq.com/keys
+            
+            **Claude (Paid Premium):**
+            - 👑 Maximum quality output
+            - 🎯 Best SEO optimization
+            - 💰 Paid API (~₹0.15 per property)
+            - Get key: console.anthropic.com
             
             **Grok (X.AI):**
             - ✅ Free tier available
@@ -571,7 +610,7 @@ def main():
             - ⚡ Instant generation
             - 📄 Basic quality
             
-            **💡 Recommendation:** Use Claude for premium listings & conversions!
+            **💡 Best Value:** Groq Premium gives you premium quality for FREE!
             """)
     
     if mode == "Single Property":
