@@ -620,65 +620,443 @@ def main():
 
 
 def show_single_property(api_provider, api_key):
-    """Single property form"""
-    st.subheader("Enter Property Details")
+    """Comprehensive Property Input Module - FR-1 Implementation"""
+    st.subheader("📝 Property Details Entry Form")
+    st.caption("Fill in all details to generate premium property description")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        property_type = st.selectbox("Property Type", ["flat", "villa", "pg", "shop", "office"])
-        bhk = st.text_input("BHK", "2")
-        area_sqft = st.number_input("Area (sqft)", value=1000, min_value=100)
-        city = st.text_input("City", "Mumbai")
-        locality = st.text_input("Locality", "Andheri")
+    # Create tabs for better organization
+    tab1, tab2, tab3 = st.tabs(["🏠 Basic Details", "💰 Pricing & Availability", "✨ Features & Amenities"])
     
-    with col2:
-        furnishing = st.selectbox("Furnishing", ["unfurnished", "semi", "fully"])
-        rent = st.number_input("Monthly Rent (₹)", value=25000)
-        deposit = st.number_input("Deposit (₹)", value=50000)
-        available = st.date_input("Available From")
-        tenants = st.text_input("Preferred Tenants", "Family")
+    with tab1:
+        st.markdown("### Basic Property Information")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            property_type = st.selectbox(
+                "Property Type *",
+                ["Flat", "Villa", "Independent House", "PG/Hostel", "Shop", "Office Space", 
+                 "Warehouse", "Land/Plot", "Studio Apartment", "Penthouse"],
+                help="Select the type of property"
+            )
+            
+            bhk = st.selectbox(
+                "BHK Configuration / Rooms *",
+                ["1 RK", "1 BHK", "2 BHK", "3 BHK", "4 BHK", "5 BHK", "5+ BHK", 
+                 "Studio", "Other"],
+                help="Number of bedrooms, hall, and kitchen"
+            )
+            
+            area_unit = st.radio("Area Unit", ["sq ft", "sq m"], horizontal=True)
+            area_sqft = st.number_input(
+                f"Built-up Area ({area_unit}) *",
+                min_value=100,
+                max_value=50000,
+                value=1000,
+                step=50,
+                help="Total built-up area of the property"
+            )
+            
+            furnishing = st.selectbox(
+                "Furnishing Status *",
+                ["Unfurnished", "Semi-Furnished", "Fully Furnished"],
+                help="Current furnishing level of the property"
+            )
+        
+        with col2:
+            city = st.text_input(
+                "City *",
+                value="Mumbai",
+                help="City where property is located"
+            )
+            
+            locality = st.text_input(
+                "Area/Locality *",
+                value="Andheri West",
+                help="Specific area or locality name"
+            )
+            
+            landmark = st.text_input(
+                "Landmark (Optional)",
+                placeholder="e.g., Near XYZ Mall",
+                help="Prominent landmark near the property"
+            )
+            
+            col_floor1, col_floor2 = st.columns(2)
+            with col_floor1:
+                floor_no = st.number_input(
+                    "Floor Number",
+                    min_value=0,
+                    max_value=100,
+                    value=5,
+                    help="Floor on which property is located (0 for ground)"
+                )
+            
+            with col_floor2:
+                total_floors = st.number_input(
+                    "Total Floors",
+                    min_value=1,
+                    max_value=100,
+                    value=10,
+                    help="Total floors in the building"
+                )
     
-    amenities = st.text_input("Amenities (comma separated)", "Parking, Gym, Security")
+    with tab2:
+        st.markdown("### Pricing & Availability Details")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            rent = st.number_input(
+                "Monthly Rent (₹) *",
+                min_value=1000,
+                max_value=10000000,
+                value=25000,
+                step=1000,
+                help="Monthly rental amount"
+            )
+            
+            deposit = st.number_input(
+                "Security Deposit (₹) *",
+                min_value=0,
+                max_value=50000000,
+                value=50000,
+                step=5000,
+                help="Refundable security deposit"
+            )
+            
+            maintenance = st.number_input(
+                "Maintenance (₹/month)",
+                min_value=0,
+                max_value=100000,
+                value=2000,
+                step=500,
+                help="Monthly maintenance charges (if applicable)"
+            )
+        
+        with col2:
+            available = st.date_input(
+                "Available From *",
+                help="Date when property will be available for move-in"
+            )
+            
+            preferred_tenants = st.multiselect(
+                "Preferred Tenants *",
+                ["Family", "Bachelors", "Students", "Company Lease", "Any"],
+                default=["Family"],
+                help="Type of tenants preferred (can select multiple)"
+            )
+            
+            # Additional terms
+            negotiable = st.checkbox("Rent Negotiable", value=False)
+            parking_charges = st.number_input(
+                "Parking Charges (₹/month)",
+                min_value=0,
+                max_value=10000,
+                value=0,
+                help="Additional parking charges if any"
+            )
     
-    if st.button("🚀 Generate Description", type="primary", use_container_width=True):
+    with tab3:
+        st.markdown("### Features & Amenities")
+        
+        # Amenities Section
+        st.markdown("#### 🏢 Building Amenities")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        amenities = []
+        
+        with col1:
+            if st.checkbox("Lift/Elevator", value=True):
+                amenities.append("Lift")
+            if st.checkbox("Parking", value=True):
+                amenities.append("Parking")
+            if st.checkbox("Power Backup", value=False):
+                amenities.append("Power Backup")
+            if st.checkbox("Water Supply", value=True):
+                amenities.append("24/7 Water")
+        
+        with col2:
+            if st.checkbox("Security", value=True):
+                amenities.append("Security")
+            if st.checkbox("CCTV Surveillance", value=False):
+                amenities.append("CCTV")
+            if st.checkbox("Intercom", value=False):
+                amenities.append("Intercom")
+            if st.checkbox("Fire Safety", value=False):
+                amenities.append("Fire Safety")
+        
+        with col3:
+            if st.checkbox("Gym/Fitness Center", value=False):
+                amenities.append("Gym")
+            if st.checkbox("Swimming Pool", value=False):
+                amenities.append("Pool")
+            if st.checkbox("Garden/Park", value=False):
+                amenities.append("Garden")
+            if st.checkbox("Children's Play Area", value=False):
+                amenities.append("Play Area")
+        
+        with col4:
+            if st.checkbox("Club House", value=False):
+                amenities.append("Club House")
+            if st.checkbox("Visitor Parking", value=False):
+                amenities.append("Visitor Parking")
+            if st.checkbox("Maintenance Staff", value=True):
+                amenities.append("Maintenance Staff")
+            if st.checkbox("Waste Disposal", value=True):
+                amenities.append("Waste Disposal")
+        
+        st.divider()
+        
+        # Property-specific features
+        st.markdown("#### 🏠 Property Features")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if st.checkbox("Balcony", value=True):
+                amenities.append("Balcony")
+            if st.checkbox("Modular Kitchen", value=False):
+                amenities.append("Modular Kitchen")
+            if st.checkbox("Wardrobe", value=False):
+                amenities.append("Wardrobe")
+        
+        with col2:
+            if st.checkbox("AC", value=False):
+                amenities.append("Air Conditioning")
+            if st.checkbox("Geyser", value=False):
+                amenities.append("Geyser")
+            if st.checkbox("WiFi/Internet", value=False):
+                amenities.append("Internet")
+        
+        with col3:
+            if st.checkbox("TV", value=False):
+                amenities.append("TV")
+            if st.checkbox("Washing Machine", value=False):
+                amenities.append("Washing Machine")
+            if st.checkbox("Fridge", value=False):
+                amenities.append("Refrigerator")
+        
+        with col4:
+            if st.checkbox("Sofa", value=False):
+                amenities.append("Sofa")
+            if st.checkbox("Bed", value=False):
+                amenities.append("Bed")
+            if st.checkbox("Dining Table", value=False):
+                amenities.append("Dining Table")
+        
+        st.divider()
+        
+        # Nearby Points
+        st.markdown("#### 📍 Nearby Points of Interest")
+        col1, col2 = st.columns(2)
+        
+        nearby_points = []
+        
+        with col1:
+            if st.checkbox("Metro Station", value=False):
+                distance = st.text_input("Distance from Metro", placeholder="e.g., 500m")
+                nearby_points.append(f"Metro Station ({distance})" if distance else "Metro Station")
+            
+            if st.checkbox("Bus Stop", value=False):
+                distance = st.text_input("Distance from Bus Stop", placeholder="e.g., 200m")
+                nearby_points.append(f"Bus Stop ({distance})" if distance else "Bus Stop")
+            
+            if st.checkbox("Railway Station", value=False):
+                distance = st.text_input("Distance from Railway", placeholder="e.g., 2km")
+                nearby_points.append(f"Railway Station ({distance})" if distance else "Railway Station")
+            
+            if st.checkbox("Airport", value=False):
+                distance = st.text_input("Distance from Airport", placeholder="e.g., 15km")
+                nearby_points.append(f"Airport ({distance})" if distance else "Airport")
+        
+        with col2:
+            if st.checkbox("School", value=False):
+                nearby_points.append("School Nearby")
+            
+            if st.checkbox("Hospital", value=False):
+                nearby_points.append("Hospital Nearby")
+            
+            if st.checkbox("Market/Mall", value=False):
+                nearby_points.append("Shopping Complex")
+            
+            if st.checkbox("Restaurant/Cafe", value=False):
+                nearby_points.append("Restaurants")
+        
+        st.divider()
+        
+        # Rough Description
+        st.markdown("#### 📄 Additional Description (Optional)")
+        rough_description = st.text_area(
+            "Owner's Description",
+            placeholder="Add any additional details, special features, or unique selling points...",
+            height=120,
+            help="Free text to add any extra information about the property"
+        )
+    
+    st.divider()
+    
+    # Summary Section
+    with st.expander("📋 View Input Summary", expanded=False):
+        summary_col1, summary_col2 = st.columns(2)
+        
+        with summary_col1:
+            st.markdown("**Basic Details:**")
+            st.write(f"• Type: {property_type}")
+            st.write(f"• Configuration: {bhk}")
+            st.write(f"• Area: {area_sqft} {area_unit}")
+            st.write(f"• Location: {locality}, {city}")
+            st.write(f"• Floor: {floor_no} of {total_floors}")
+            st.write(f"• Furnishing: {furnishing}")
+        
+        with summary_col2:
+            st.markdown("**Pricing & Terms:**")
+            st.write(f"• Rent: ₹{rent:,}/month")
+            st.write(f"• Deposit: ₹{deposit:,}")
+            st.write(f"• Maintenance: ₹{maintenance:,}/month")
+            st.write(f"• Available: {available}")
+            st.write(f"• Preferred: {', '.join(preferred_tenants)}")
+        
+        if amenities:
+            st.markdown("**Amenities:**")
+            st.write(", ".join(amenities))
+        
+        if nearby_points:
+            st.markdown("**Nearby:**")
+            st.write(", ".join(nearby_points))
+    
+    # Generate Button
+    st.divider()
+    
+    if st.button("🚀 Generate Premium Description", type="primary", use_container_width=True):
+        # Validate required fields
+        if not city or not locality:
+            st.error("❌ Please fill in all required fields marked with *")
+            return
+        
+        # Prepare property data
         property_data = {
-            'property_type': property_type, 'bhk': bhk, 'area_sqft': area_sqft,
-            'city': city, 'locality': locality, 'furnishing_status': furnishing,
-            'rent_amount': rent, 'deposit_amount': deposit,
-            'available_from': str(available), 'preferred_tenants': tenants,
-            'amenities': [a.strip() for a in amenities.split(',')],
-            'landmark': '', 'floor_no': None, 
-            'total_floors': None, 'rough_description': ''
+            'property_type': property_type.lower(),
+            'bhk': bhk,
+            'area_sqft': area_sqft,
+            'area_unit': area_unit,
+            'city': city,
+            'locality': locality,
+            'landmark': landmark if landmark else '',
+            'floor_no': floor_no,
+            'total_floors': total_floors,
+            'furnishing_status': furnishing.lower(),
+            'rent_amount': rent,
+            'deposit_amount': deposit,
+            'maintenance': maintenance,
+            'parking_charges': parking_charges,
+            'negotiable': negotiable,
+            'available_from': str(available),
+            'preferred_tenants': ', '.join(preferred_tenants),
+            'amenities': amenities,
+            'nearby_points': nearby_points,
+            'rough_description': rough_description if rough_description else ''
         }
         
-        with st.spinner(f"Generating with {api_provider}..."):
+        with st.spinner(f"✨ Generating premium description with {api_provider}..."):
             result = generate_description(property_data, api_provider, api_key)
         
         if result:
-            st.success("✅ Generated Successfully!")
+            st.success("✅ Premium Description Generated Successfully!")
             
-            # Display results
-            st.markdown(f"### {result['title']}")
-            st.caption(result['teaser_text'])
+            # Display results in attractive format
+            st.markdown("---")
+            st.markdown(f"## 🏠 {result['title']}")
+            st.markdown(f"*{result['teaser_text']}*")
+            
             st.divider()
             
-            st.markdown("**Full Description:**")
+            # Full Description
+            st.markdown("### 📝 Full Description")
             st.write(result['full_description'])
             
+            st.divider()
+            
+            # Two column layout for features and SEO
             col1, col2 = st.columns(2)
+            
             with col1:
-                st.markdown("**Key Features:**")
-                for point in result['bullet_points']:
-                    st.markdown(f"• {point}")
+                st.markdown("### ✨ Key Features")
+                for i, point in enumerate(result['bullet_points'], 1):
+                    st.markdown(f"**{i}.** {point}")
             
             with col2:
-                st.markdown("**SEO Keywords:**")
-                st.write(", ".join(result['seo_keywords']))
+                st.markdown("### 🔍 SEO Keywords")
+                st.info(", ".join(result['seo_keywords']))
+                
+                st.markdown("### 📊 SEO Metadata")
+                st.text_input("Meta Title", result['meta_title'], disabled=True)
+                st.text_area("Meta Description", result['meta_description'], disabled=True, height=100)
             
             st.divider()
-            st.markdown("**SEO Metadata:**")
-            st.text(f"Title: {result['meta_title']}")
-            st.text(f"Description: {result['meta_description']}")
+            
+            # Download options
+            st.markdown("### 💾 Download Options")
+            
+            download_col1, download_col2, download_col3 = st.columns(3)
+            
+            with download_col1:
+                # JSON download
+                json_data = json.dumps({
+                    'property_details': property_data,
+                    'generated_content': result
+                }, indent=2)
+                st.download_button(
+                    "📄 Download JSON",
+                    json_data,
+                    f"property_{locality.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.json",
+                    "application/json",
+                    use_container_width=True
+                )
+            
+            with download_col2:
+                # Text download
+                text_content = f"""
+{result['title']}
+{result['teaser_text']}
+
+{result['full_description']}
+
+Key Features:
+{chr(10).join(f"• {p}" for p in result['bullet_points'])}
+
+SEO Keywords: {', '.join(result['seo_keywords'])}
+Meta Title: {result['meta_title']}
+Meta Description: {result['meta_description']}
+                """
+                st.download_button(
+                    "📝 Download TXT",
+                    text_content,
+                    f"property_{locality.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.txt",
+                    "text/plain",
+                    use_container_width=True
+                )
+            
+            with download_col3:
+                # CSV download
+                csv_data = pd.DataFrame([{
+                    'Property_Type': property_data['property_type'],
+                    'BHK': property_data['bhk'],
+                    'Area': f"{property_data['area_sqft']} {property_data['area_unit']}",
+                    'Location': f"{property_data['locality']}, {property_data['city']}",
+                    'Rent': property_data['rent_amount'],
+                    'Title': result['title'],
+                    'Description': result['full_description'],
+                    'Features': ' | '.join(result['bullet_points']),
+                    'SEO_Keywords': ', '.join(result['seo_keywords'])
+                }])
+                
+                st.download_button(
+                    "📊 Download CSV",
+                    csv_data.to_csv(index=False),
+                    f"property_{locality.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    "text/csv",
+                    use_container_width=True
+                )
 
 
 def show_bulk_upload(api_provider, api_key):
