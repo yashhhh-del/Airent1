@@ -1,6 +1,6 @@
 """
 AI Property Description Generator - INTERACTIVE COLUMN MAPPER
-Click karke columns map karo - Super Simple!
+Multiple AI APIs support: Claude, Grok (Free), OpenAI
 """
 
 import streamlit as st
@@ -96,57 +96,172 @@ class InteractiveParser:
 
 
 # ==================== AI GENERATION ====================
-def generate_description(property_data, api_key=None):
-    """Generate property description"""
+def generate_with_grok(property_data, api_key):
+    """Generate description using Grok API (Free Tier)"""
+    try:
+        bhk = property_data['bhk']
+        prop_type = property_data['property_type'].title()
+        locality = property_data['locality']
+        city = property_data['city']
+        area = property_data['area_sqft']
+        rent = property_data['rent_amount']
+        furnishing = property_data['furnishing_status']
+        amenities = ', '.join(property_data['amenities']) if property_data['amenities'] else 'Standard amenities'
+        
+        prompt = f"""Generate a professional rental property listing description in JSON format for:
+
+Property Details:
+- Type: {bhk} BHK {prop_type}
+- Location: {locality}, {city}
+- Area: {area} sqft
+- Rent: Rs.{rent}/month
+- Furnishing: {furnishing}
+- Amenities: {amenities}
+- Preferred Tenants: {property_data['preferred_tenants']}
+
+Generate ONLY valid JSON with these fields:
+{{
+    "title": "catchy 8-12 word title",
+    "teaser_text": "short 15-20 word teaser",
+    "full_description": "detailed 100-150 word description highlighting key features",
+    "bullet_points": ["feature 1", "feature 2", "feature 3", "feature 4", "feature 5"],
+    "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+    "meta_title": "SEO optimized title under 60 chars",
+    "meta_description": "SEO description under 160 chars"
+}}
+
+Return ONLY the JSON, no explanations."""
+
+        response = requests.post(
+            "https://api.x.ai/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            },
+            json={
+                "messages": [
+                    {"role": "system", "content": "You are a professional real estate content writer. Always respond with valid JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                "model": "grok-beta",
+                "temperature": 0.7
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content'].strip()
+            
+            # Clean markdown formatting if present
+            if content.startswith('```json'):
+                content = content.replace('```json', '').replace('```', '').strip()
+            elif content.startswith('```'):
+                content = content.replace('```', '').strip()
+            
+            return json.loads(content)
+        else:
+            raise Exception(f"Grok API Error: {response.status_code}")
+            
+    except Exception as e:
+        st.error(f"Grok API Error: {str(e)}")
+        return None
+
+
+def generate_with_claude(property_data, api_key):
+    """Generate description using Claude API"""
+    try:
+        bhk = property_data['bhk']
+        prop_type = property_data['property_type'].title()
+        locality = property_data['locality']
+        city = property_data['city']
+        
+        prompt = f"""Generate a rental property description in JSON format for:
+{bhk} BHK {prop_type} in {locality}, {city}
+Area: {property_data['area_sqft']} sqft, Rent: Rs.{property_data['rent_amount']}
+Furnishing: {property_data['furnishing_status']}
+
+Return ONLY valid JSON with fields: title, teaser_text, full_description, bullet_points[], seo_keywords[], meta_title, meta_description"""
+        
+        response = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01"
+            },
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 2000,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['content'][0]['text']
+            return json.loads(content)
+        else:
+            raise Exception(f"Claude API Error: {response.status_code}")
+            
+    except Exception as e:
+        st.error(f"Claude API Error: {str(e)}")
+        return None
+
+
+def generate_fallback(property_data):
+    """Fallback template-based generation"""
     bhk = property_data['bhk']
     prop_type = property_data['property_type'].title()
     locality = property_data['locality']
     city = property_data['city']
-    
-    if api_key:
-        try:
-            prompt = f"""Generate rental property description as JSON:
-{bhk} BHK {prop_type} in {locality}, {city}
-Area: {property_data['area_sqft']} sqft, Rent: Rs.{property_data['rent_amount']}
-Return JSON: title, teaser_text, full_description, bullet_points[], seo_keywords[], meta_title, meta_description"""
-            
-            response = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "Content-Type": "application/json",
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01"
-                },
-                json={
-                    "model": "claude-sonnet-4-20250514",
-                    "max_tokens": 2000,
-                    "messages": [{"role": "user", "content": prompt}]
-                },
-                timeout=30
-            )
-            result = response.json()
-            return json.loads(result['content'][0]['text'])
-        except:
-            pass
+    area = property_data['area_sqft']
+    rent = property_data['rent_amount']
+    furnishing = property_data['furnishing_status'].title()
     
     return {
         "title": f"Spacious {bhk} BHK {prop_type} for Rent in {locality}",
-        "teaser_text": f"Well-maintained {bhk} BHK in {locality}, {city}",
-        "full_description": f"Beautiful {bhk} BHK {prop_type} in {locality}, {city}. Area: {property_data['area_sqft']} sqft. {property_data['furnishing_status'].title()} furnished.",
+        "teaser_text": f"Well-maintained {bhk} BHK {prop_type} in prime {locality} location",
+        "full_description": f"Looking for a comfortable home? This beautiful {bhk} BHK {prop_type} in {locality}, {city} is perfect for you. Spread across {area} sqft, this {furnishing} furnished property offers great value at Rs.{rent}/month. Located in a well-connected area with easy access to essential amenities.",
         "bullet_points": [
-            f"{bhk} BHK with {property_data['area_sqft']} sqft",
-            f"{property_data['furnishing_status'].title()} furnishing",
-            f"Rent: Rs.{property_data['rent_amount']}/month"
+            f"{bhk} BHK configuration with {area} sqft carpet area",
+            f"{furnishing} furnished with modern fittings",
+            f"Monthly rent: Rs.{rent} | Deposit: Rs.{property_data['deposit_amount']}",
+            f"Preferred for: {property_data['preferred_tenants']}",
+            f"Available from: {property_data['available_from']}"
         ],
-        "seo_keywords": [f"{bhk} bhk {city}", f"{locality} rental"],
-        "meta_title": f"{bhk} BHK {prop_type} - {locality}",
-        "meta_description": f"Rent {bhk} BHK in {locality}, {city}"
+        "seo_keywords": [
+            f"{bhk} bhk {city}",
+            f"{locality} rental",
+            f"{prop_type} for rent {city}",
+            f"{furnishing} flat {locality}",
+            f"rent {bhk}bhk {city}"
+        ],
+        "meta_title": f"{bhk} BHK {prop_type} for Rent in {locality}, {city}",
+        "meta_description": f"Rent this spacious {bhk} BHK {prop_type} in {locality}, {city}. {area} sqft, {furnishing} furnished. Rs.{rent}/month. Available now!"
     }
+
+
+def generate_description(property_data, api_provider, api_key=None):
+    """Main generation function with multiple providers"""
+    if api_provider == "Grok (Free)" and api_key:
+        result = generate_with_grok(property_data, api_key)
+        if result:
+            return result
+    elif api_provider == "Claude" and api_key:
+        result = generate_with_claude(property_data, api_key)
+        if result:
+            return result
+    
+    # Fallback to template
+    return generate_fallback(property_data)
 
 
 # ==================== MAIN APP ====================
 def main():
     st.title("🏠 AI Property Description Generator")
+    st.caption("Powered by Multiple AI Models - Grok Free API Support")
     
     # Initialize session state
     if 'column_mapping' not in st.session_state:
@@ -156,18 +271,56 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.header("Configuration")
-        api_key = st.text_input("Claude API Key", type="password")
+        st.header("⚙️ Configuration")
+        
+        # AI Provider Selection
+        api_provider = st.selectbox(
+            "Select AI Provider",
+            ["Template (No API)", "Grok (Free)", "Claude"],
+            help="Grok offers free tier API access!"
+        )
+        
+        # API Key Input
+        api_key = None
+        if api_provider != "Template (No API)":
+            if api_provider == "Grok (Free)":
+                st.info("🆓 Get free Grok API key from: https://console.x.ai")
+                api_key = st.text_input("Grok API Key", type="password", placeholder="xai-...")
+            else:
+                st.info("Get Claude API key from: https://console.anthropic.com")
+                api_key = st.text_input("Claude API Key", type="password", placeholder="sk-ant-...")
+        
         st.divider()
         mode = st.radio("Mode", ["Single Property", "Bulk Upload"])
+        
+        # API Info
+        with st.expander("ℹ️ About API Providers"):
+            st.markdown("""
+            **Grok (Free):**
+            - ✅ Free tier available
+            - Fast response times
+            - Good quality descriptions
+            - Get key: console.x.ai
+            
+            **Claude:**
+            - Premium quality
+            - Excellent SEO optimization
+            - Paid API (credits required)
+            - Get key: console.anthropic.com
+            
+            **Template (No API):**
+            - No API key needed
+            - Instant generation
+            - Basic quality
+            """)
     
     if mode == "Single Property":
-        show_single_property(api_key)
+        show_single_property(api_provider, api_key)
     else:
-        show_bulk_upload(api_key)
+        show_bulk_upload(api_provider, api_key)
 
 
-def show_single_property(api_key):
+def show_single_property(api_provider, api_key):
     """Single property form"""
     st.subheader("Enter Property Details")
     
@@ -175,34 +328,61 @@ def show_single_property(api_key):
     with col1:
         property_type = st.selectbox("Property Type", ["flat", "villa", "pg", "shop", "office"])
         bhk = st.text_input("BHK", "2")
-        area_sqft = st.number_input("Area", value=1000, min_value=100)
+        area_sqft = st.number_input("Area (sqft)", value=1000, min_value=100)
         city = st.text_input("City", "Mumbai")
         locality = st.text_input("Locality", "Andheri")
     
     with col2:
         furnishing = st.selectbox("Furnishing", ["unfurnished", "semi", "fully"])
-        rent = st.number_input("Rent", value=25000)
-        deposit = st.number_input("Deposit", value=50000)
+        rent = st.number_input("Monthly Rent (₹)", value=25000)
+        deposit = st.number_input("Deposit (₹)", value=50000)
         available = st.date_input("Available From")
-        tenants = st.text_input("Tenants", "Family")
+        tenants = st.text_input("Preferred Tenants", "Family")
     
-    if st.button("Generate", type="primary"):
+    amenities = st.text_input("Amenities (comma separated)", "Parking, Gym, Security")
+    
+    if st.button("🚀 Generate Description", type="primary", use_container_width=True):
         property_data = {
             'property_type': property_type, 'bhk': bhk, 'area_sqft': area_sqft,
             'city': city, 'locality': locality, 'furnishing_status': furnishing,
             'rent_amount': rent, 'deposit_amount': deposit,
             'available_from': str(available), 'preferred_tenants': tenants,
-            'amenities': [], 'landmark': '', 'floor_no': None, 
+            'amenities': [a.strip() for a in amenities.split(',')],
+            'landmark': '', 'floor_no': None, 
             'total_floors': None, 'rough_description': ''
         }
         
-        result = generate_description(property_data, api_key)
-        st.success("Generated!")
-        st.markdown(f"### {result['title']}")
-        st.write(result['full_description'])
+        with st.spinner(f"Generating with {api_provider}..."):
+            result = generate_description(property_data, api_provider, api_key)
+        
+        if result:
+            st.success("✅ Generated Successfully!")
+            
+            # Display results
+            st.markdown(f"### {result['title']}")
+            st.caption(result['teaser_text'])
+            st.divider()
+            
+            st.markdown("**Full Description:**")
+            st.write(result['full_description'])
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Key Features:**")
+                for point in result['bullet_points']:
+                    st.markdown(f"• {point}")
+            
+            with col2:
+                st.markdown("**SEO Keywords:**")
+                st.write(", ".join(result['seo_keywords']))
+            
+            st.divider()
+            st.markdown("**SEO Metadata:**")
+            st.text(f"Title: {result['meta_title']}")
+            st.text(f"Description: {result['meta_description']}")
 
 
-def show_bulk_upload(api_key):
+def show_bulk_upload(api_provider, api_key):
     """Bulk upload with interactive mapper"""
     st.subheader("Bulk Upload - Interactive Column Mapping")
     
@@ -230,12 +410,12 @@ def show_bulk_upload(api_key):
         
         col1, col2 = st.columns(2)
         with col1:
-            st.download_button("CSV", template.to_csv(index=False), "template.csv")
+            st.download_button("📄 CSV", template.to_csv(index=False), "template.csv")
         with col2:
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 template.to_excel(writer, index=False)
-            st.download_button("Excel", output.getvalue(), "template.xlsx")
+            st.download_button("📊 Excel", output.getvalue(), "template.xlsx")
     
     st.divider()
     
@@ -348,14 +528,17 @@ def show_bulk_upload(api_key):
                             
                             # Generate descriptions
                             progress = st.progress(0)
+                            status_text = st.empty()
                             results = []
                             
                             for idx, prop in enumerate(properties):
-                                desc = generate_description(prop, api_key)
+                                status_text.text(f"Generating description {idx+1}/{len(properties)} using {api_provider}...")
+                                desc = generate_description(prop, api_provider, api_key)
                                 results.append({'property': prop, 'description': desc})
                                 progress.progress((idx + 1) / len(properties))
                             
                             progress.empty()
+                            status_text.empty()
                             st.success(f"🎉 Generated {len(results)} descriptions!")
                             
                             # Create output
@@ -371,7 +554,12 @@ def show_bulk_upload(api_key):
                                     'Area': p['area_sqft'],
                                     'Rent': p['rent_amount'],
                                     'Title': d['title'],
+                                    'Teaser': d['teaser_text'],
                                     'Description': d['full_description'],
+                                    'Features': ' | '.join(d['bullet_points']),
+                                    'SEO_Keywords': ', '.join(d['seo_keywords']),
+                                    'Meta_Title': d['meta_title'],
+                                    'Meta_Description': d['meta_description']
                                 })
                             
                             result_df = pd.DataFrame(output_data)
@@ -389,10 +577,10 @@ def show_bulk_upload(api_key):
                                 use_container_width=True
                             )
                             
-                            with st.expander("Preview Results"):
-                                st.dataframe(result_df.head())
+                            with st.expander("📊 Preview Results"):
+                                st.dataframe(result_df.head(10))
                         else:
-                            st.error("No valid properties found")
+                            st.error("❌ No valid properties found")
                             if parser.errors:
                                 for err in parser.errors:
                                     st.error(err)
