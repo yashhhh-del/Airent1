@@ -107,7 +107,7 @@ def test_groq_api(api_key):
                 "Authorization": f"Bearer {api_key.strip()}"
             },
             json={
-                "model": "llama-3.1-70b-versatile",
+                "model": "llama-3.3-70b-versatile",  # Updated to latest model
                 "messages": [{"role": "user", "content": "Say 'API is working!'"}],
                 "temperature": 0.5,
                 "max_tokens": 50
@@ -158,7 +158,7 @@ Return ONLY this JSON structure (no markdown, no explanations):
     "meta_description": "SEO description under 160 characters"
 }}"""
 
-            # Make API request
+            # Make API request with latest Groq model
             response = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
@@ -166,7 +166,7 @@ Return ONLY this JSON structure (no markdown, no explanations):
                     "Authorization": f"Bearer {api_key}"
                 },
                 json={
-                    "model": "llama-3.1-70b-versatile",
+                    "model": "llama-3.3-70b-versatile",  # Updated to latest model
                     "messages": [
                         {
                             "role": "system",
@@ -474,7 +474,7 @@ def main():
             **Groq (Free & Fast):**
             - ✅ Free tier with generous limits
             - ⚡ Super fast inference (fastest!)
-            - 🎯 Llama 3.1 70B model
+            - 🎯 Llama 3.3 70B model (latest)
             - Get key: console.groq.com/keys
             
             **Grok (X.AI):**
