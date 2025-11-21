@@ -1,5 +1,5 @@
 """
-AI Property Description Generator - INTERACTIVE COLUMN MAPPER
+AI Property Description Generator - FIXED GROQ API VERSION
 Multiple AI APIs support: Claude, Grok (Free), OpenAI
 """
 
@@ -9,6 +9,7 @@ import json
 import requests
 from datetime import datetime
 from io import BytesIO
+import time
 
 # Page Configuration
 st.set_page_config(
@@ -96,42 +97,9 @@ class InteractiveParser:
 
 
 # ==================== AI GENERATION ====================
-def generate_with_groq(property_data, api_key):
-    """Generate description using Groq API (Free & Super Fast)"""
+def test_groq_api(api_key):
+    """Test Groq API connection with simple request"""
     try:
-        bhk = property_data['bhk']
-        prop_type = property_data['property_type'].title()
-        locality = property_data['locality']
-        city = property_data['city']
-        area = property_data['area_sqft']
-        rent = property_data['rent_amount']
-        furnishing = property_data['furnishing_status']
-        amenities = ', '.join(property_data['amenities']) if property_data['amenities'] else 'Standard amenities'
-        
-        prompt = f"""Generate a professional rental property listing description in JSON format.
-
-Property Details:
-- Type: {bhk} BHK {prop_type}
-- Location: {locality}, {city}
-- Area: {area} sqft
-- Rent: Rs.{rent}/month
-- Furnishing: {furnishing}
-- Amenities: {amenities}
-- Preferred Tenants: {property_data['preferred_tenants']}
-
-Return ONLY valid JSON with these exact fields:
-{{
-    "title": "catchy property title (8-12 words)",
-    "teaser_text": "short engaging teaser (15-20 words)",
-    "full_description": "detailed description highlighting location, features, and value (100-150 words)",
-    "bullet_points": ["key feature 1", "key feature 2", "key feature 3", "key feature 4", "key feature 5"],
-    "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-    "meta_title": "SEO title under 60 characters",
-    "meta_description": "SEO description under 160 characters"
-}}
-
-Return ONLY the JSON object, no markdown, no explanations."""
-
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
@@ -140,74 +108,144 @@ Return ONLY the JSON object, no markdown, no explanations."""
             },
             json={
                 "model": "llama-3.1-70b-versatile",
-                "messages": [
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
-                ],
+                "messages": [{"role": "user", "content": "Say 'API is working!'"}],
                 "temperature": 0.5,
-                "max_tokens": 1500,
-                "top_p": 1,
-                "stream": False,
-                "stop": None
+                "max_tokens": 50
             },
-            timeout=30
+            timeout=15
         )
         
-        # Debug info with full error details
-        if response.status_code != 200:
-            error_detail = response.text
-            st.error(f"❌ Groq API Error Code: {response.status_code}")
+        if response.status_code == 200:
+            return True, "✅ API Connection Successful!"
+        else:
+            return False, f"Error {response.status_code}: {response.text[:200]}"
+    except Exception as e:
+        return False, f"Connection Error: {str(e)}"
+
+
+def generate_with_groq(property_data, api_key, retry_count=3):
+    """Generate description using Groq API (Free & Super Fast) with retries"""
+    
+    for attempt in range(retry_count):
+        try:
+            # Clean API key
+            api_key = api_key.strip()
             
-            with st.expander("🔍 Full Error Details (Click here)"):
-                st.code(error_detail, language="json")
-                st.write("**Request Details:**")
-                st.write(f"- API Key Length: {len(api_key)}")
-                st.write(f"- API Key Starts: {api_key[:8]}...")
-                st.write(f"- Model: llama-3.1-70b-versatile")
+            bhk = property_data['bhk']
+            prop_type = property_data['property_type'].title()
+            locality = property_data['locality']
+            city = property_data['city']
+            area = property_data['area_sqft']
+            rent = property_data['rent_amount']
+            furnishing = property_data['furnishing_status']
+            amenities = ', '.join(property_data['amenities']) if property_data['amenities'] else 'Standard amenities'
             
-            # Common error solutions
-            if response.status_code == 400:
-                st.warning("💡 **Possible Issues:**")
-                st.markdown("""
-                - API key might be invalid or inactive
-                - Check if API key is correctly copied (no extra spaces)
-                - Verify model name is correct
-                - Try regenerating API key at console.groq.com
-                """)
-            elif response.status_code == 401:
-                st.warning("💡 **401 Unauthorized** - API key is invalid. Get a new one from console.groq.com")
+            prompt = f"""Generate a professional rental property listing in JSON format.
+
+Property: {bhk} BHK {prop_type}, {locality}, {city}
+Area: {area} sqft | Rent: Rs.{rent}/month
+Furnishing: {furnishing} | Amenities: {amenities}
+Preferred: {property_data['preferred_tenants']}
+
+Return ONLY this JSON structure (no markdown, no explanations):
+{{
+    "title": "catchy property title (8-12 words)",
+    "teaser_text": "short engaging teaser (15-20 words)",
+    "full_description": "detailed description (100-150 words)",
+    "bullet_points": ["feature 1", "feature 2", "feature 3", "feature 4", "feature 5"],
+    "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+    "meta_title": "SEO title under 60 characters",
+    "meta_description": "SEO description under 160 characters"
+}}"""
+
+            # Make API request
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}"
+                },
+                json={
+                    "model": "llama-3.1-70b-versatile",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a professional real estate content writer. Always respond with valid JSON only, no markdown formatting."
+                        },
+                        {
+                            "role": "user", 
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.6,
+                    "max_tokens": 1500,
+                    "top_p": 0.9
+                },
+                timeout=30
+            )
+            
+            # Handle response
+            if response.status_code == 200:
+                result = response.json()
+                content = result['choices'][0]['message']['content'].strip()
+                
+                # Clean markdown formatting if present
+                if content.startswith('```json'):
+                    content = content.replace('```json', '').replace('```', '').strip()
+                elif content.startswith('```'):
+                    content = content.replace('```', '').strip()
+                
+                # Parse JSON
+                parsed = json.loads(content)
+                return parsed
+            
+            # Handle errors
             elif response.status_code == 429:
-                st.warning("💡 **429 Rate Limit** - Free tier limit reached")
-            elif response.status_code == 500:
-                st.warning("💡 **500 Server Error** - Groq server issue, try again")
+                if attempt < retry_count - 1:
+                    wait_time = (attempt + 1) * 2
+                    st.warning(f"⏳ Rate limit hit. Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    st.error("❌ Rate limit exceeded. Please wait a minute and try again.")
+                    return None
             
+            elif response.status_code == 401:
+                st.error("❌ Invalid API Key")
+                st.info("🔑 Get a new API key from: https://console.groq.com/keys")
+                return None
+            
+            elif response.status_code == 400:
+                error_data = response.json()
+                st.error(f"❌ Bad Request: {error_data}")
+                return None
+            
+            else:
+                st.error(f"❌ API Error {response.status_code}")
+                with st.expander("🔍 Error Details"):
+                    st.code(response.text)
+                return None
+                
+        except requests.exceptions.Timeout:
+            if attempt < retry_count - 1:
+                st.warning(f"⏳ Timeout. Retrying... (Attempt {attempt + 2}/{retry_count})")
+                time.sleep(2)
+                continue
+            else:
+                st.error("❌ Request timeout after multiple attempts")
+                return None
+        
+        except json.JSONDecodeError as e:
+            st.error(f"❌ Invalid JSON response from Groq")
+            with st.expander("🔍 Response Details"):
+                st.text(content if 'content' in locals() else "No content received")
             return None
         
-        result = response.json()
-        content = result['choices'][0]['message']['content'].strip()
-        
-        # Clean markdown formatting if present
-        if content.startswith('```json'):
-            content = content.replace('```json', '').replace('```', '').strip()
-        elif content.startswith('```'):
-            content = content.replace('```', '').strip()
-        
-        return json.loads(content)
-            
-    except requests.exceptions.Timeout:
-        st.error("Groq API timeout - trying fallback...")
-        return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Groq API connection error: {str(e)}")
-        return None
-    except json.JSONDecodeError as e:
-        st.error(f"Groq returned invalid JSON: {str(e)}")
-        return None
-    except Exception as e:
-        st.error(f"Groq API Error: {str(e)}")
-        return None
+        except Exception as e:
+            st.error(f"❌ Unexpected Error: {str(e)}")
+            return None
+    
+    return None
 
 
 def generate_with_grok(property_data, api_key):
@@ -264,32 +302,16 @@ Return ONLY the JSON, no explanations."""
             timeout=60
         )
         
-        # Debug info with full error details
         if response.status_code != 200:
-            error_detail = response.text
-            st.error(f"❌ Grok API Error Code: {response.status_code}")
-            with st.expander("🔍 Click to see full error details"):
-                st.code(error_detail)
-            
-            # Common error solutions
-            if response.status_code == 400:
-                st.warning("💡 **400 Bad Request** - Possible issues:")
-                st.markdown("""
-                - Check if API key is correct (should start with `xai-`)
-                - Model name might be incorrect
-                - Request format issue
-                """)
-            elif response.status_code == 401:
-                st.warning("💡 **401 Unauthorized** - API key is invalid or expired")
-            elif response.status_code == 429:
-                st.warning("💡 **429 Rate Limit** - Too many requests, wait a bit")
-            
+            st.error(f"❌ Grok API Error {response.status_code}")
+            with st.expander("🔍 Error Details"):
+                st.code(response.text)
             return None
         
         result = response.json()
         content = result['choices'][0]['message']['content'].strip()
         
-        # Clean markdown formatting if present
+        # Clean markdown formatting
         if content.startswith('```json'):
             content = content.replace('```json', '').replace('```', '').strip()
         elif content.startswith('```'):
@@ -297,15 +319,6 @@ Return ONLY the JSON, no explanations."""
         
         return json.loads(content)
             
-    except requests.exceptions.Timeout:
-        st.error("Grok API timeout - trying again with fallback...")
-        return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Grok API connection error: {str(e)}")
-        return None
-    except json.JSONDecodeError as e:
-        st.error(f"Grok returned invalid JSON: {str(e)}")
-        return None
     except Exception as e:
         st.error(f"Grok API Error: {str(e)}")
         return None
@@ -402,13 +415,14 @@ def generate_description(property_data, api_provider, api_key=None):
             return result
     
     # Fallback to template
+    st.info("ℹ️ Using template-based generation")
     return generate_fallback(property_data)
 
 
 # ==================== MAIN APP ====================
 def main():
     st.title("🏠 AI Property Description Generator")
-    st.caption("Powered by Multiple AI Models - Grok Free API Support")
+    st.caption("Powered by Multiple AI Models - Fixed Groq API Integration")
     
     # Initialize session state
     if 'column_mapping' not in st.session_state:
@@ -431,8 +445,19 @@ def main():
         api_key = None
         if api_provider != "Template (No API)":
             if api_provider == "Groq (Free & Fast)":
-                st.info("🆓 Get free Groq API key from: https://console.groq.com")
+                st.info("🆓 Get free Groq API key from: https://console.groq.com/keys")
                 api_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
+                
+                # Test API button
+                if api_key:
+                    if st.button("🧪 Test API Connection"):
+                        with st.spinner("Testing..."):
+                            success, message = test_groq_api(api_key)
+                            if success:
+                                st.success(message)
+                            else:
+                                st.error(message)
+                
             elif api_provider == "Grok (X.AI)":
                 st.info("🆓 Get free Grok API key from: https://console.x.ai")
                 api_key = st.text_input("Grok API Key", type="password", placeholder="xai-...")
@@ -450,7 +475,7 @@ def main():
             - ✅ Free tier with generous limits
             - ⚡ Super fast inference (fastest!)
             - 🎯 Llama 3.1 70B model
-            - Get key: console.groq.com
+            - Get key: console.groq.com/keys
             
             **Grok (X.AI):**
             - ✅ Free tier available
@@ -692,6 +717,7 @@ def show_bulk_upload(api_provider, api_key):
                                 desc = generate_description(prop, api_provider, api_key)
                                 results.append({'property': prop, 'description': desc})
                                 progress.progress((idx + 1) / len(properties))
+                                time.sleep(0.5)  # Small delay between requests
                             
                             progress.empty()
                             status_text.empty()
