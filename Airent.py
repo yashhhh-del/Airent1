@@ -136,16 +136,21 @@ Return ONLY the JSON object, no markdown, no explanations."""
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
+                "Authorization": f"Bearer {api_key.strip()}"
             },
             json={
                 "model": "llama-3.1-70b-versatile",
                 "messages": [
-                    {"role": "system", "content": "You are a professional real estate content writer. Always return valid JSON only, no markdown formatting."},
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "user", 
+                        "content": prompt
+                    }
                 ],
-                "temperature": 0.7,
-                "max_tokens": 2000
+                "temperature": 0.5,
+                "max_tokens": 1500,
+                "top_p": 1,
+                "stream": False,
+                "stop": None
             },
             timeout=30
         )
@@ -154,16 +159,29 @@ Return ONLY the JSON object, no markdown, no explanations."""
         if response.status_code != 200:
             error_detail = response.text
             st.error(f"❌ Groq API Error Code: {response.status_code}")
-            with st.expander("🔍 Click to see full error details"):
-                st.code(error_detail)
+            
+            with st.expander("🔍 Full Error Details (Click here)"):
+                st.code(error_detail, language="json")
+                st.write("**Request Details:**")
+                st.write(f"- API Key Length: {len(api_key)}")
+                st.write(f"- API Key Starts: {api_key[:8]}...")
+                st.write(f"- Model: llama-3.1-70b-versatile")
             
             # Common error solutions
             if response.status_code == 400:
-                st.warning("💡 **400 Bad Request** - Check API key format (should start with `gsk_`)")
+                st.warning("💡 **Possible Issues:**")
+                st.markdown("""
+                - API key might be invalid or inactive
+                - Check if API key is correctly copied (no extra spaces)
+                - Verify model name is correct
+                - Try regenerating API key at console.groq.com
+                """)
             elif response.status_code == 401:
-                st.warning("💡 **401 Unauthorized** - API key is invalid or expired")
+                st.warning("💡 **401 Unauthorized** - API key is invalid. Get a new one from console.groq.com")
             elif response.status_code == 429:
-                st.warning("💡 **429 Rate Limit** - Free tier limit reached, wait a bit")
+                st.warning("💡 **429 Rate Limit** - Free tier limit reached")
+            elif response.status_code == 500:
+                st.warning("💡 **500 Server Error** - Groq server issue, try again")
             
             return None
         
