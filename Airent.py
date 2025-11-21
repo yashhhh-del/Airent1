@@ -176,9 +176,9 @@ def generate_with_groq(property_data, api_key, retry_count=3, variation_seed=0):
             available = property_data['available_from']
             nearby = ', '.join(property_data.get('nearby_points', []))
             
-            prompt = f"""You are an expert real estate copywriter specializing in premium property listings that drive high engagement and conversions.
+            prompt = f"""You are an expert real estate copywriter specializing in premium property listings.
 
-Create a compelling, professional rental property listing for:
+Create a compelling rental property listing for:
 
 **Property Details:**
 - Type: {bhk} BHK {prop_type}
@@ -192,79 +192,83 @@ Create a compelling, professional rental property listing for:
 - Available From: {available}
 - Nearby: {nearby}
 
-**CREATIVE DIRECTION FOR THIS VERSION:**
-- Primary Focus: {variation['focus']}
-- Tone: {variation['tone']}
-- Special Instruction: {variation['instruction']}
+**CREATIVE DIRECTION:** Focus on {variation['focus']} with a {variation['tone']} tone.
 
-**Requirements:**
-1. **Title**: Create an attention-grabbing, emotional title (8-12 words) that highlights the property's unique value proposition and creates desire. Make it DIFFERENT from generic titles.
+**CRITICAL REQUIREMENTS:**
 
-2. **Teaser**: Write a compelling hook (15-20 words) that creates urgency and paints a lifestyle picture
+1. **Title** (8-12 words): Attention-grabbing headline that creates desire
 
-3. **Full Description (2-3 PARAGRAPHS, 150-200 words total)**:
+2. **Teaser** (15-20 words): Compelling hook with urgency
+
+3. **Full Description - MUST BE 2-3 PARAGRAPHS WITH 150-200 WORDS TOTAL:**
+
+   **FORMAT REQUIREMENT:** You MUST separate paragraphs with "\\n\\n" (double line break)
    
-   **Paragraph 1 (Opening Hook - 50-70 words):**
-   - Start with an emotional hook or lifestyle statement
-   - Paint a vivid picture of living in this property
-   - Use sensory language and aspirational tone
-   - Create immediate desire and connection
+   **Paragraph 1 (50-70 words):**
+   - Emotional opening that paints a lifestyle picture
+   - Use sensory details and aspirational language
+   - Make reader visualize living there
    
-   **Paragraph 2 (Features & Location - 60-80 words):**
-   - Highlight key property features as lifestyle benefits
-   - Emphasize the amenities and what they enable
-   - Mention strategic location and connectivity
-   - Include specific details about furnishing and space
+   **Paragraph 2 (70-100 words):**
+   - Describe key features as lifestyle benefits
+   - Mention amenities and what they enable
+   - Include location advantages
+   - State price and availability
+   - Add call-to-action
    
-   **Paragraph 3 (Call-to-Action - 40-50 words) [OPTIONAL - use only if needed]:**
-   - Create FOMO (fear of missing out)
-   - End with urgency statement
-   - Mention availability
+   **OR use 3 paragraphs:**
    
-   **Important:** 
-   - Write in 2-3 distinct paragraphs separated by line breaks
-   - Total length: 150-200 words (be concise!)
-   - Each sentence should add value
-   - Avoid repetition and filler words
-   - Follow the creative direction: {variation['instruction']}
+   **Para 1 (50-60 words):** Emotional hook
+   **Para 2 (60-80 words):** Features + amenities
+   **Para 3 (40-60 words):** Location + CTA
 
-4. **Bullet Points**: 5 compelling features written as BENEFITS (not just specs). Focus on what the tenant gains. Make them unique and specific.
+4. **Bullet Points**: 5 benefit-focused features
 
-5. **SEO Keywords**: 5 highly relevant, search-optimized keywords that people actually search for
+5. **SEO Keywords**: 5 search-optimized terms
 
-6. **Meta Title**: SEO-optimized title (under 60 chars) with primary keyword
+6. **Meta Title**: Under 60 characters
 
-7. **Meta Description**: Compelling SEO description (150-160 chars) with call-to-action
+7. **Meta Description**: 150-160 characters with CTA
 
-**Tone**: {variation['tone']}. Write like you're selling a dream lifestyle, not just a property.
+**EXAMPLE OUTPUT (you must follow this format exactly):**
 
-**IMPORTANT - MAKE IT CONCISE & UNIQUE:**
-- Be concise - every word must count
-- Use varied vocabulary and expressions
-- Create original metaphors and descriptions
-- Avoid repetitive patterns and filler words
-
-**Example Structure (180 words, 2 paragraphs):**
-
-"Imagine waking up each morning in this beautifully designed 2 BHK sanctuary in Andheri West, where modern elegance meets everyday comfort. Natural light floods through expansive windows, creating a warm ambiance that transforms your living space into a personal haven. This isn't just a rental—it's where life happens.
-
-Step inside to discover 1,200 sqft of thoughtfully furnished space combining style with functionality. The modular kitchen inspires culinary creativity, while the spacious living area becomes your entertainment hub. Premium amenities include 24/7 security, power backup, and dedicated parking. Located minutes from Andheri Metro, surrounded by shopping complexes, schools, and hospitals—everything you need is within reach. At just ₹25,000/month, this gem offers exceptional value. Available immediately for families seeking the perfect blend of luxury and convenience."
-
-Return ONLY valid JSON (no markdown, no ```json):
 {{
-    "title": "your captivating title here",
-    "teaser_text": "your compelling teaser here",
-    "full_description": "Paragraph 1 here (50-70 words).\\n\\nParagraph 2 here (60-80 words). [Optional Paragraph 3 if needed (40-50 words)].",
-    "bullet_points": ["lifestyle benefit 1", "lifestyle benefit 2", "lifestyle benefit 3", "lifestyle benefit 4", "lifestyle benefit 5"],
-    "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-    "meta_title": "your SEO meta title here",
-    "meta_description": "your SEO meta description with CTA here"
-}}"""
+    "title": "Wake Up to Luxury: Stunning 2 BHK Haven in Prime Andheri West",
+    "teaser_text": "Modern living meets timeless comfort in this beautifully designed space - your dream home awaits!",
+    "full_description": "Picture yourself waking up in this stunning 2 BHK apartment where every morning feels like a fresh start. Sunlight streams through large windows, filling 1,200 square feet of elegantly designed space with warmth and life. This isn't just a house—it's your personal sanctuary in the heart of Andheri West.\\n\\nThe fully furnished interiors blend style with functionality perfectly. Your modern modular kitchen inspires culinary adventures, while the spacious living room becomes the heart of family gatherings. With premium amenities like 24/7 security, power backup, dedicated parking, and high-speed internet, every convenience is at your fingertips. Located just 500m from Andheri Metro station, surrounded by top schools, hospitals, and shopping centers, you're connected to everything that matters. At ₹25,000 per month, this gem offers incredible value for families seeking quality living. Available for immediate move-in!",
+    "bullet_points": [
+        "Spacious 1,200 sqft layout - room for the whole family to thrive",
+        "Prime Andheri West location - metro, malls, and markets at your doorstep",
+        "Fully furnished with modern amenities - move in today, start living tomorrow",
+        "24/7 security and power backup - peace of mind included",
+        "Exceptional value at ₹25,000/month - affordable luxury in premium area"
+    ],
+    "seo_keywords": [
+        "2 bhk andheri west",
+        "furnished flat andheri rent",
+        "family apartment andheri",
+        "2bhk near metro andheri",
+        "andheri west rental"
+    ],
+    "meta_title": "2 BHK Andheri West Rent | Furnished | ₹25k/mo",
+    "meta_description": "Premium 2 BHK in Andheri West. 1200 sqft, fully furnished, near metro. Security, parking included. ₹25,000/mo. Ready to move. Book today!"
+}}
+
+**CRITICAL FORMATTING RULES:**
+1. Use \\n\\n (double backslash-n) to separate paragraphs in JSON
+2. Description MUST be 150-200 words total
+3. Description MUST have 2-3 distinct paragraphs
+4. DO NOT use markdown, DO NOT use ``` formatting
+5. Return ONLY valid JSON
+
+**Tone:** {variation['tone']} - Be {variation['instruction']}
+
+Return ONLY the JSON object with proper \\n\\n paragraph separators:"""
 
             # Adjust temperature based on variation for more creativity
-            temperature = 0.8 + (variation_seed * 0.05)
-            if temperature > 1.0:
-                temperature = 0.8 + ((variation_seed % 3) * 0.05)
+            temperature = 0.7 + (variation_seed * 0.05)  # Slightly lower for better structure
+            if temperature > 0.95:
+                temperature = 0.7 + ((variation_seed % 3) * 0.05)
 
             # Make API request
             response = requests.post(
@@ -278,7 +282,7 @@ Return ONLY valid JSON (no markdown, no ```json):
                     "messages": [
                         {
                             "role": "system",
-                            "content": f"You are an expert real estate copywriter creating premium, emotionally engaging property listings. For this generation, your focus is on {variation['focus']} with a {variation['tone']} tone. Write compelling, benefit-focused content that sells lifestyle and experience, not just features. Be creative and avoid repetitive patterns. Always respond with valid JSON only, no markdown formatting."
+                            "content": f"You are an expert real estate copywriter. CRITICAL: Always format descriptions with 2-3 distinct paragraphs separated by \\n\\n (double line break). Your focus is on {variation['focus']} with a {variation['tone']} tone. Total word count must be 150-200 words. Always respond with valid JSON only, no markdown formatting."
                         },
                         {
                             "role": "user", 
@@ -286,7 +290,7 @@ Return ONLY valid JSON (no markdown, no ```json):
                         }
                     ],
                     "temperature": temperature,
-                    "max_tokens": 2000,
+                    "max_tokens": 2200,  # Increased for better output
                     "top_p": 0.9
                 },
                 timeout=30
@@ -305,6 +309,32 @@ Return ONLY valid JSON (no markdown, no ```json):
                 
                 # Parse JSON
                 parsed = json.loads(content)
+                
+                # POST-PROCESSING: Ensure proper paragraph formatting
+                description = parsed.get('full_description', '')
+                
+                # If description doesn't have proper paragraph breaks, try to add them intelligently
+                if '\\n\\n' not in description and '\n\n' not in description:
+                    # Split by sentences and group into paragraphs
+                    sentences = description.split('. ')
+                    if len(sentences) >= 6:
+                        # Create 2-3 paragraphs
+                        mid_point = len(sentences) // 2
+                        para1 = '. '.join(sentences[:mid_point]) + '.'
+                        para2 = '. '.join(sentences[mid_point:])
+                        parsed['full_description'] = f"{para1}\n\n{para2}"
+                    elif len(sentences) >= 3:
+                        # Split into 2 paragraphs
+                        mid_point = len(sentences) // 2
+                        para1 = '. '.join(sentences[:mid_point]) + '.'
+                        para2 = '. '.join(sentences[mid_point:])
+                        parsed['full_description'] = f"{para1}\n\n{para2}"
+                
+                # Ensure word count is reasonable
+                word_count = len(parsed['full_description'].split())
+                if word_count < 100:
+                    st.warning(f"⚠️ Generated description is short ({word_count} words). Consider regenerating.")
+                
                 return parsed
             
             # Handle errors
