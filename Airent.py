@@ -787,39 +787,168 @@ def show_single_property(api_provider, api_key):
             st.session_state.generated_result = result
             st.success("✅ Premium Description Generated Successfully!")
     
-    # Display results
+    # Display results with EDITABLE FIELDS (FR-5)
     if st.session_state.generated_result:
         result = st.session_state.generated_result
         property_data = st.session_state.property_data
+        
+        # Initialize edited content in session state if not exists
+        if 'edited_content' not in st.session_state:
+            st.session_state.edited_content = result.copy()
         
         if st.session_state.generation_count > 0:
             st.info(f"📝 Version #{st.session_state.generation_count + 1}")
         
         st.markdown("---")
-        st.markdown(f"## 🏠 {result['title']}")
-        st.markdown(f"*{result['teaser_text']}*")
+        st.markdown("## 📝 Generated Content (Fully Editable)")
+        st.caption("Edit any field below to customize the content")
+        
+        # Editable Title/Headline
+        st.markdown("### 🏠 Title / Headline")
+        edited_title = st.text_area(
+            "Title",
+            value=result['title'],
+            height=80,
+            help="Edit the property title/headline",
+            key="edit_title",
+            label_visibility="collapsed"
+        )
+        st.session_state.edited_content['title'] = edited_title
         
         st.divider()
         
-        st.markdown("### 📝 Full Description")
-        st.write(result['full_description'])
+        # Editable Short Teaser (1-2 lines)
+        st.markdown("### ✨ Short Teaser (1-2 lines)")
+        edited_teaser = st.text_area(
+            "Teaser",
+            value=result['teaser_text'],
+            height=80,
+            help="Edit the short teaser text",
+            key="edit_teaser",
+            label_visibility="collapsed"
+        )
+        st.session_state.edited_content['teaser_text'] = edited_teaser
         
         st.divider()
         
+        # Editable Detailed Description (2-5 paragraphs)
+        st.markdown("### 📝 Detailed Description (2-5 paragraphs)")
+        edited_description = st.text_area(
+            "Description",
+            value=result['full_description'],
+            height=250,
+            help="Edit the detailed property description",
+            key="edit_description",
+            label_visibility="collapsed"
+        )
+        st.session_state.edited_content['full_description'] = edited_description
+        
+        st.divider()
+        
+        # Editable Key Features/Bullet Points
+        st.markdown("### 🎯 Key Features / Bullet Points")
+        st.caption("Edit each feature point individually")
+        
+        edited_bullets = []
+        for i, point in enumerate(result['bullet_points'], 1):
+            edited_point = st.text_input(
+                f"Feature {i}",
+                value=point,
+                help=f"Edit feature point {i}",
+                key=f"edit_bullet_{i}"
+            )
+            edited_bullets.append(edited_point)
+        st.session_state.edited_content['bullet_points'] = edited_bullets
+        
+        st.divider()
+        
+        # Editable SEO Section
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("### ✨ Key Features")
-            for i, point in enumerate(result['bullet_points'], 1):
-                st.markdown(f"**{i}.** {point}")
+            st.markdown("### 🔍 SEO Keywords")
+            edited_keywords_text = st.text_area(
+                "Keywords (comma-separated)",
+                value=", ".join(result['seo_keywords']),
+                height=100,
+                help="Edit SEO keywords (comma-separated)",
+                key="edit_keywords"
+            )
+            edited_keywords = [k.strip() for k in edited_keywords_text.split(',') if k.strip()]
+            st.session_state.edited_content['seo_keywords'] = edited_keywords
         
         with col2:
-            st.markdown("### 🔍 SEO Keywords")
-            st.info(", ".join(result['seo_keywords']))
+            st.markdown("### 📊 SEO Meta Title")
+            edited_meta_title = st.text_input(
+                "Meta Title (under 60 chars)",
+                value=result['meta_title'],
+                help="Edit meta title for SEO",
+                key="edit_meta_title"
+            )
+            st.session_state.edited_content['meta_title'] = edited_meta_title
             
-            st.markdown("### 📊 SEO Metadata")
-            st.text_input("Meta Title", result['meta_title'], disabled=True, key="meta_title_display")
-            st.text_area("Meta Description", result['meta_description'], disabled=True, height=100, key="meta_desc_display")
+            # Show character count
+            char_count_title = len(edited_meta_title)
+            if char_count_title > 60:
+                st.error(f"⚠️ {char_count_title} chars (exceeds 60 char limit)")
+            else:
+                st.success(f"✅ {char_count_title}/60 chars")
+        
+        st.divider()
+        
+        # Editable Meta Description (150-160 characters)
+        st.markdown("### 📄 Suggested Meta Description (150-160 characters)")
+        edited_meta_desc = st.text_area(
+            "Meta Description",
+            value=result['meta_description'],
+            height=100,
+            help="Edit meta description for SEO (150-160 characters)",
+            key="edit_meta_desc",
+            label_visibility="collapsed"
+        )
+        st.session_state.edited_content['meta_description'] = edited_meta_desc
+        
+        # Show character count for meta description
+        char_count_desc = len(edited_meta_desc)
+        if char_count_desc < 150:
+            st.warning(f"⚠️ {char_count_desc} chars (too short, minimum 150)")
+        elif char_count_desc > 160:
+            st.error(f"⚠️ {char_count_desc} chars (too long, maximum 160)")
+        else:
+            st.success(f"✅ {char_count_desc}/160 chars (perfect!)")
+        
+        st.divider()
+        
+        # Preview Section
+        with st.expander("👁️ Preview Edited Content", expanded=False):
+            st.markdown("### Preview of Your Edited Content")
+            st.markdown(f"**Title:** {st.session_state.edited_content['title']}")
+            st.markdown(f"**Teaser:** *{st.session_state.edited_content['teaser_text']}*")
+            st.markdown("**Description:**")
+            st.write(st.session_state.edited_content['full_description'])
+            st.markdown("**Features:**")
+            for i, bullet in enumerate(st.session_state.edited_content['bullet_points'], 1):
+                st.markdown(f"{i}. {bullet}")
+            st.markdown(f"**Keywords:** {', '.join(st.session_state.edited_content['seo_keywords'])}")
+            st.markdown(f"**Meta Title:** {st.session_state.edited_content['meta_title']}")
+            st.markdown(f"**Meta Description:** {st.session_state.edited_content['meta_description']}")
+        
+        st.divider()
+        
+        # Reset to Original Button
+        col_reset1, col_reset2, col_reset3 = st.columns([1, 1, 2])
+        with col_reset1:
+            if st.button("🔄 Reset to Original", key="reset_btn", help="Reset all edits to original generated content"):
+                st.session_state.edited_content = result.copy()
+                st.success("✅ Reset to original content!")
+                st.rerun()
+        
+        with col_reset2:
+            if st.button("💾 Save Edits", key="save_edits_btn", help="Save your edited content"):
+                st.success("✅ Edits saved! Use download buttons below.")
+        
+        # Update result with edited content for downloads
+        result = st.session_state.edited_content
         
         st.divider()
         
