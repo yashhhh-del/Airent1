@@ -176,9 +176,9 @@ def generate_with_groq(property_data, api_key, retry_count=3, variation_seed=0):
             available = property_data['available_from']
             nearby = ', '.join(property_data.get('nearby_points', []))
             
-            prompt = f"""You are an expert real estate copywriter specializing in premium property listings.
+            prompt = f"""You are an expert real estate copywriter specializing in premium property listings that drive high engagement and conversions.
 
-Create a compelling rental property listing for:
+Create a compelling, professional rental property listing for:
 
 **Property Details:**
 - Type: {bhk} BHK {prop_type}
@@ -192,83 +192,50 @@ Create a compelling rental property listing for:
 - Available From: {available}
 - Nearby: {nearby}
 
-**CREATIVE DIRECTION:** Focus on {variation['focus']} with a {variation['tone']} tone.
+**CREATIVE DIRECTION FOR THIS VERSION:**
+- Primary Focus: {variation['focus']}
+- Tone: {variation['tone']}
+- Special Instruction: {variation['instruction']}
 
-**CRITICAL REQUIREMENTS:**
+**Requirements:**
+1. **Title**: Create an attention-grabbing, emotional title (8-12 words) that highlights the property's unique value proposition and creates desire. Make it DIFFERENT from generic titles.
+2. **Teaser**: Write a compelling hook (15-20 words) that creates urgency and paints a lifestyle picture
+3. **Full Description**: Craft a detailed, engaging description (150-200 words) that:
+   - Paints a vivid picture of living there
+   - Highlights lifestyle benefits, not just features
+   - Uses emotional, sensory language
+   - Emphasizes location advantages and convenience
+   - Creates FOMO (fear of missing out)
+   - Focuses on the experience and feelings
+   - Follows the creative direction provided above
+4. **Bullet Points**: 5 compelling features written as BENEFITS (not just specs). Focus on what the tenant gains. Make them unique and specific.
+5. **SEO Keywords**: 5 highly relevant, search-optimized keywords that people actually search for
+6. **Meta Title**: SEO-optimized title (under 60 chars) with primary keyword
+7. **Meta Description**: Compelling SEO description (under 160 chars) with call-to-action
 
-1. **Title** (8-12 words): Attention-grabbing headline that creates desire
+**Tone**: {variation['tone']}. Write like you're selling a dream lifestyle, not just a property.
 
-2. **Teaser** (15-20 words): Compelling hook with urgency
+**IMPORTANT - MAKE IT UNIQUE:**
+- Use varied vocabulary and expressions
+- Try different angles and perspectives  
+- Create original metaphors and descriptions
+- Avoid repetitive patterns
 
-3. **Full Description - MUST BE 2-3 PARAGRAPHS WITH 150-200 WORDS TOTAL:**
-
-   **FORMAT REQUIREMENT:** You MUST separate paragraphs with "\\n\\n" (double line break)
-   
-   **Paragraph 1 (50-70 words):**
-   - Emotional opening that paints a lifestyle picture
-   - Use sensory details and aspirational language
-   - Make reader visualize living there
-   
-   **Paragraph 2 (70-100 words):**
-   - Describe key features as lifestyle benefits
-   - Mention amenities and what they enable
-   - Include location advantages
-   - State price and availability
-   - Add call-to-action
-   
-   **OR use 3 paragraphs:**
-   
-   **Para 1 (50-60 words):** Emotional hook
-   **Para 2 (60-80 words):** Features + amenities
-   **Para 3 (40-60 words):** Location + CTA
-
-4. **Bullet Points**: 5 benefit-focused features
-
-5. **SEO Keywords**: 5 search-optimized terms
-
-6. **Meta Title**: Under 60 characters
-
-7. **Meta Description**: 150-160 characters with CTA
-
-**EXAMPLE OUTPUT (you must follow this format exactly):**
-
+Return ONLY valid JSON (no markdown, no ```json):
 {{
-    "title": "Wake Up to Luxury: Stunning 2 BHK Haven in Prime Andheri West",
-    "teaser_text": "Modern living meets timeless comfort in this beautifully designed space - your dream home awaits!",
-    "full_description": "Picture yourself waking up in this stunning 2 BHK apartment where every morning feels like a fresh start. Sunlight streams through large windows, filling 1,200 square feet of elegantly designed space with warmth and life. This isn't just a house—it's your personal sanctuary in the heart of Andheri West.\\n\\nThe fully furnished interiors blend style with functionality perfectly. Your modern modular kitchen inspires culinary adventures, while the spacious living room becomes the heart of family gatherings. With premium amenities like 24/7 security, power backup, dedicated parking, and high-speed internet, every convenience is at your fingertips. Located just 500m from Andheri Metro station, surrounded by top schools, hospitals, and shopping centers, you're connected to everything that matters. At ₹25,000 per month, this gem offers incredible value for families seeking quality living. Available for immediate move-in!",
-    "bullet_points": [
-        "Spacious 1,200 sqft layout - room for the whole family to thrive",
-        "Prime Andheri West location - metro, malls, and markets at your doorstep",
-        "Fully furnished with modern amenities - move in today, start living tomorrow",
-        "24/7 security and power backup - peace of mind included",
-        "Exceptional value at ₹25,000/month - affordable luxury in premium area"
-    ],
-    "seo_keywords": [
-        "2 bhk andheri west",
-        "furnished flat andheri rent",
-        "family apartment andheri",
-        "2bhk near metro andheri",
-        "andheri west rental"
-    ],
-    "meta_title": "2 BHK Andheri West Rent | Furnished | ₹25k/mo",
-    "meta_description": "Premium 2 BHK in Andheri West. 1200 sqft, fully furnished, near metro. Security, parking included. ₹25,000/mo. Ready to move. Book today!"
-}}
-
-**CRITICAL FORMATTING RULES:**
-1. Use \\n\\n (double backslash-n) to separate paragraphs in JSON
-2. Description MUST be 150-200 words total
-3. Description MUST have 2-3 distinct paragraphs
-4. DO NOT use markdown, DO NOT use ``` formatting
-5. Return ONLY valid JSON
-
-**Tone:** {variation['tone']} - Be {variation['instruction']}
-
-Return ONLY the JSON object with proper \\n\\n paragraph separators:"""
+    "title": "your captivating title here",
+    "teaser_text": "your compelling teaser here",
+    "full_description": "your detailed engaging description here",
+    "bullet_points": ["lifestyle benefit 1", "lifestyle benefit 2", "lifestyle benefit 3", "lifestyle benefit 4", "lifestyle benefit 5"],
+    "seo_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+    "meta_title": "your SEO meta title here",
+    "meta_description": "your SEO meta description with CTA here"
+}}"""
 
             # Adjust temperature based on variation for more creativity
-            temperature = 0.7 + (variation_seed * 0.05)  # Slightly lower for better structure
-            if temperature > 0.95:
-                temperature = 0.7 + ((variation_seed % 3) * 0.05)
+            temperature = 0.8 + (variation_seed * 0.05)
+            if temperature > 1.0:
+                temperature = 0.8 + ((variation_seed % 3) * 0.05)
 
             # Make API request
             response = requests.post(
@@ -282,7 +249,7 @@ Return ONLY the JSON object with proper \\n\\n paragraph separators:"""
                     "messages": [
                         {
                             "role": "system",
-                            "content": f"You are an expert real estate copywriter. CRITICAL: Always format descriptions with 2-3 distinct paragraphs separated by \\n\\n (double line break). Your focus is on {variation['focus']} with a {variation['tone']} tone. Total word count must be 150-200 words. Always respond with valid JSON only, no markdown formatting."
+                            "content": f"You are an expert real estate copywriter creating premium, emotionally engaging property listings. For this generation, your focus is on {variation['focus']} with a {variation['tone']} tone. Write compelling, benefit-focused content that sells lifestyle and experience, not just features. Be creative and avoid repetitive patterns. Always respond with valid JSON only, no markdown formatting."
                         },
                         {
                             "role": "user", 
@@ -290,7 +257,7 @@ Return ONLY the JSON object with proper \\n\\n paragraph separators:"""
                         }
                     ],
                     "temperature": temperature,
-                    "max_tokens": 2200,  # Increased for better output
+                    "max_tokens": 2000,
                     "top_p": 0.9
                 },
                 timeout=30
@@ -309,32 +276,6 @@ Return ONLY the JSON object with proper \\n\\n paragraph separators:"""
                 
                 # Parse JSON
                 parsed = json.loads(content)
-                
-                # POST-PROCESSING: Ensure proper paragraph formatting
-                description = parsed.get('full_description', '')
-                
-                # If description doesn't have proper paragraph breaks, try to add them intelligently
-                if '\\n\\n' not in description and '\n\n' not in description:
-                    # Split by sentences and group into paragraphs
-                    sentences = description.split('. ')
-                    if len(sentences) >= 6:
-                        # Create 2-3 paragraphs
-                        mid_point = len(sentences) // 2
-                        para1 = '. '.join(sentences[:mid_point]) + '.'
-                        para2 = '. '.join(sentences[mid_point:])
-                        parsed['full_description'] = f"{para1}\n\n{para2}"
-                    elif len(sentences) >= 3:
-                        # Split into 2 paragraphs
-                        mid_point = len(sentences) // 2
-                        para1 = '. '.join(sentences[:mid_point]) + '.'
-                        para2 = '. '.join(sentences[mid_point:])
-                        parsed['full_description'] = f"{para1}\n\n{para2}"
-                
-                # Ensure word count is reasonable
-                word_count = len(parsed['full_description'].split())
-                if word_count < 100:
-                    st.warning(f"⚠️ Generated description is short ({word_count} words). Consider regenerating.")
-                
                 return parsed
             
             # Handle errors
@@ -387,7 +328,7 @@ Return ONLY the JSON object with proper \\n\\n paragraph separators:"""
 
 
 def generate_fallback(property_data):
-    """Fallback template-based generation with 150-200 words"""
+    """Fallback template-based generation"""
     bhk = property_data['bhk']
     prop_type = property_data['property_type'].title()
     locality = property_data['locality']
@@ -395,36 +336,27 @@ def generate_fallback(property_data):
     area = property_data['area_sqft']
     rent = property_data['rent_amount']
     furnishing = property_data['furnishing_status'].title()
-    amenities_list = property_data.get('amenities', ['parking', 'security', 'lift'])
-    amenities = ', '.join(amenities_list[:3]) if amenities_list else 'parking, security, and lift'
-    
-    # Generate 2 paragraph description (150-200 words)
-    para1 = f"Discover your ideal home in this beautiful {bhk} BHK {prop_type} located in the heart of {locality}, {city}. Spread across a spacious {area} sqft, this well-maintained property combines modern design with everyday comfort. The {furnishing} furnished interiors create a welcoming atmosphere, making it perfect for those seeking quality living without compromise."
-    
-    para2 = f"Enjoy premium amenities including {amenities}, ensuring a comfortable and secure lifestyle. The property's strategic location in {locality} puts you close to essential services, shopping centers, schools, and excellent transportation links. At just ₹{rent:,} per month with a deposit of ₹{property_data['deposit_amount']:,}, this home offers exceptional value. Available from {property_data['available_from']} and ideal for {property_data['preferred_tenants'].lower()}, this is an opportunity you don't want to miss!"
-    
-    full_description = f"{para1}\n\n{para2}"
     
     return {
-        "title": f"Prime {bhk} BHK {prop_type} in {locality} - Ready to Move",
-        "teaser_text": f"Spacious {bhk} BHK in sought-after {locality} location - Modern living at its finest!",
-        "full_description": full_description,
+        "title": f"Spacious {bhk} BHK {prop_type} for Rent in {locality}",
+        "teaser_text": f"Well-maintained {bhk} BHK {prop_type} in prime {locality} location",
+        "full_description": f"Looking for a comfortable home? This beautiful {bhk} BHK {prop_type} in {locality}, {city} is perfect for you. Spread across {area} sqft, this {furnishing} furnished property offers great value at Rs.{rent}/month. Located in a well-connected area with easy access to essential amenities.",
         "bullet_points": [
-            f"{bhk} BHK with {area} sqft - spacious rooms for comfortable family living",
-            f"{furnishing} furnished - move in today, start living immediately",
-            f"Premium location in {locality} - close to all essential amenities",
-            f"Secure living with {amenities} and 24/7 facilities",
-            f"Great value at ₹{rent:,}/month - affordable luxury in prime area"
+            f"{bhk} BHK configuration with {area} sqft carpet area",
+            f"{furnishing} furnished with modern fittings",
+            f"Monthly rent: Rs.{rent} | Deposit: Rs.{property_data['deposit_amount']}",
+            f"Preferred for: {property_data['preferred_tenants']}",
+            f"Available from: {property_data['available_from']}"
         ],
         "seo_keywords": [
-            f"{bhk} bhk {locality}",
-            f"{prop_type} rent {city}",
-            f"{furnishing} {locality}",
-            f"{bhk}bhk {city} rent",
-            f"{locality} property"
+            f"{bhk} bhk {city}",
+            f"{locality} rental",
+            f"{prop_type} for rent {city}",
+            f"{furnishing} flat {locality}",
+            f"rent {bhk}bhk {city}"
         ],
-        "meta_title": f"{bhk} BHK {prop_type} Rent {locality} | ₹{rent:,}/mo",
-        "meta_description": f"Premium {bhk} BHK {prop_type} in {locality}. {area}sqft, {furnishing}. {amenities}. ₹{rent:,}/mo. Ready to move. Book viewing today!"[:160]
+        "meta_title": f"{bhk} BHK {prop_type} for Rent in {locality}, {city}",
+        "meta_description": f"Rent this spacious {bhk} BHK {prop_type} in {locality}, {city}. {area} sqft, {furnishing} furnished. Rs.{rent}/month. Available now!"
     }
 
 
@@ -855,193 +787,39 @@ def show_single_property(api_provider, api_key):
             st.session_state.generated_result = result
             st.success("✅ Premium Description Generated Successfully!")
     
-    # Display results with EDITABLE FIELDS (FR-5)
+    # Display results
     if st.session_state.generated_result:
         result = st.session_state.generated_result
         property_data = st.session_state.property_data
-        
-        # Initialize edited content in session state if not exists
-        if 'edited_content' not in st.session_state:
-            st.session_state.edited_content = result.copy()
         
         if st.session_state.generation_count > 0:
             st.info(f"📝 Version #{st.session_state.generation_count + 1}")
         
         st.markdown("---")
-        st.markdown("## 📝 Generated Content (Fully Editable)")
-        st.caption("Edit any field below to customize the content")
-        
-        # Editable Title/Headline
-        st.markdown("### 🏠 Title / Headline")
-        edited_title = st.text_area(
-            "Title",
-            value=result['title'],
-            height=80,
-            help="Edit the property title/headline",
-            key="edit_title",
-            label_visibility="collapsed"
-        )
-        st.session_state.edited_content['title'] = edited_title
+        st.markdown(f"## 🏠 {result['title']}")
+        st.markdown(f"*{result['teaser_text']}*")
         
         st.divider()
         
-        # Editable Short Teaser (1-2 lines)
-        st.markdown("### ✨ Short Teaser (1-2 lines)")
-        edited_teaser = st.text_area(
-            "Teaser",
-            value=result['teaser_text'],
-            height=80,
-            help="Edit the short teaser text",
-            key="edit_teaser",
-            label_visibility="collapsed"
-        )
-        st.session_state.edited_content['teaser_text'] = edited_teaser
+        st.markdown("### 📝 Full Description")
+        st.write(result['full_description'])
         
         st.divider()
         
-        # Editable Detailed Description (2-3 paragraphs)
-        st.markdown("### 📝 Detailed Description (2-3 paragraphs)")
-        st.caption("Write 2-3 distinct paragraphs (150-200 words total)")
-        edited_description = st.text_area(
-            "Description",
-            value=result['full_description'],
-            height=300,
-            help="Edit the detailed property description. Use empty lines to separate paragraphs.",
-            key="edit_description",
-            label_visibility="collapsed"
-        )
-        st.session_state.edited_content['full_description'] = edited_description
-        
-        # Show paragraph count and word count
-        paragraphs = [p.strip() for p in edited_description.split('\n\n') if p.strip()]
-        word_count = len(edited_description.split())
-        
-        col_count1, col_count2, col_count3 = st.columns(3)
-        with col_count1:
-            if len(paragraphs) < 2:
-                st.warning(f"⚠️ {len(paragraphs)} paragraph (need 2-3)")
-            elif len(paragraphs) > 3:
-                st.warning(f"⚠️ {len(paragraphs)} paragraphs (recommended 2-3)")
-            else:
-                st.success(f"✅ {len(paragraphs)} paragraphs (perfect!)")
-        
-        with col_count2:
-            if word_count < 150:
-                st.warning(f"⚠️ {word_count} words (min 150)")
-            elif word_count > 200:
-                st.info(f"📝 {word_count} words (max 200 recommended)")
-            else:
-                st.success(f"✅ {word_count} words (perfect!)")
-        
-        with col_count3:
-            st.info(f"📊 {len(edited_description)} characters")
-        
-        st.divider()
-        
-        # Editable Key Features/Bullet Points
-        st.markdown("### 🎯 Key Features / Bullet Points")
-        st.caption("Edit each feature point individually")
-        
-        edited_bullets = []
-        for i, point in enumerate(result['bullet_points'], 1):
-            edited_point = st.text_input(
-                f"Feature {i}",
-                value=point,
-                help=f"Edit feature point {i}",
-                key=f"edit_bullet_{i}"
-            )
-            edited_bullets.append(edited_point)
-        st.session_state.edited_content['bullet_points'] = edited_bullets
-        
-        st.divider()
-        
-        # Editable SEO Section
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("### 🔍 SEO Keywords")
-            edited_keywords_text = st.text_area(
-                "Keywords (comma-separated)",
-                value=", ".join(result['seo_keywords']),
-                height=100,
-                help="Edit SEO keywords (comma-separated)",
-                key="edit_keywords"
-            )
-            edited_keywords = [k.strip() for k in edited_keywords_text.split(',') if k.strip()]
-            st.session_state.edited_content['seo_keywords'] = edited_keywords
+            st.markdown("### ✨ Key Features")
+            for i, point in enumerate(result['bullet_points'], 1):
+                st.markdown(f"**{i}.** {point}")
         
         with col2:
-            st.markdown("### 📊 SEO Meta Title")
-            edited_meta_title = st.text_input(
-                "Meta Title (under 60 chars)",
-                value=result['meta_title'],
-                help="Edit meta title for SEO",
-                key="edit_meta_title"
-            )
-            st.session_state.edited_content['meta_title'] = edited_meta_title
+            st.markdown("### 🔍 SEO Keywords")
+            st.info(", ".join(result['seo_keywords']))
             
-            # Show character count
-            char_count_title = len(edited_meta_title)
-            if char_count_title > 60:
-                st.error(f"⚠️ {char_count_title} chars (exceeds 60 char limit)")
-            else:
-                st.success(f"✅ {char_count_title}/60 chars")
-        
-        st.divider()
-        
-        # Editable Meta Description (150-160 characters)
-        st.markdown("### 📄 Suggested Meta Description (150-160 characters)")
-        edited_meta_desc = st.text_area(
-            "Meta Description",
-            value=result['meta_description'],
-            height=100,
-            help="Edit meta description for SEO (150-160 characters)",
-            key="edit_meta_desc",
-            label_visibility="collapsed"
-        )
-        st.session_state.edited_content['meta_description'] = edited_meta_desc
-        
-        # Show character count for meta description
-        char_count_desc = len(edited_meta_desc)
-        if char_count_desc < 150:
-            st.warning(f"⚠️ {char_count_desc} chars (too short, minimum 150)")
-        elif char_count_desc > 160:
-            st.error(f"⚠️ {char_count_desc} chars (too long, maximum 160)")
-        else:
-            st.success(f"✅ {char_count_desc}/160 chars (perfect!)")
-        
-        st.divider()
-        
-        # Preview Section
-        with st.expander("👁️ Preview Edited Content", expanded=False):
-            st.markdown("### Preview of Your Edited Content")
-            st.markdown(f"**Title:** {st.session_state.edited_content['title']}")
-            st.markdown(f"**Teaser:** *{st.session_state.edited_content['teaser_text']}*")
-            st.markdown("**Description:**")
-            st.write(st.session_state.edited_content['full_description'])
-            st.markdown("**Features:**")
-            for i, bullet in enumerate(st.session_state.edited_content['bullet_points'], 1):
-                st.markdown(f"{i}. {bullet}")
-            st.markdown(f"**Keywords:** {', '.join(st.session_state.edited_content['seo_keywords'])}")
-            st.markdown(f"**Meta Title:** {st.session_state.edited_content['meta_title']}")
-            st.markdown(f"**Meta Description:** {st.session_state.edited_content['meta_description']}")
-        
-        st.divider()
-        
-        # Reset to Original Button
-        col_reset1, col_reset2, col_reset3 = st.columns([1, 1, 2])
-        with col_reset1:
-            if st.button("🔄 Reset to Original", key="reset_btn", help="Reset all edits to original generated content"):
-                st.session_state.edited_content = result.copy()
-                st.success("✅ Reset to original content!")
-                st.rerun()
-        
-        with col_reset2:
-            if st.button("💾 Save Edits", key="save_edits_btn", help="Save your edited content"):
-                st.success("✅ Edits saved! Use download buttons below.")
-        
-        # Update result with edited content for downloads
-        result = st.session_state.edited_content
+            st.markdown("### 📊 SEO Metadata")
+            st.text_input("Meta Title", result['meta_title'], disabled=True, key="meta_title_display")
+            st.text_area("Meta Description", result['meta_description'], disabled=True, height=100, key="meta_desc_display")
         
         st.divider()
         
